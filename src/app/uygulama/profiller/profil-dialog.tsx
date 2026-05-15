@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { Button } from "@heroui/react";
+import { Tag as TagIcon, Check } from "lucide-react";
 import { toast } from "sonner";
 import { DataModal } from "@/components/ui/data-modal";
 import {
@@ -11,14 +12,21 @@ import {
   TextArea,
   TextInput,
 } from "@/components/ui/form-field";
-import { CariTipi, cariTipiEtiket } from "@/lib/enums";
+import {
+  CariTipi,
+  cariTipiEtiket,
+  tagColorClass,
+  type TagColor,
+} from "@/lib/enums";
 import { createProfil, updateProfil } from "./actions";
-import type { ProfilRow } from "./profil-list";
+import { setCariTags } from "../ayarlar/etiketler/actions";
+import type { ProfilRow, TagRef } from "./profil-list";
 
 interface Props {
   isOpen: boolean;
   profil: ProfilRow | null;
   sonrakiKod: string;
+  tumEtiketler: TagRef[];
   onClose: () => void;
   onSaved: () => void;
 }
@@ -27,28 +35,61 @@ export function ProfilDialog({
   isOpen,
   profil,
   sonrakiKod,
+  tumEtiketler,
   onClose,
   onSaved,
 }: Props) {
   const isEdit = profil !== null;
   const [pending, startTransition] = useTransition();
+  const [secilenEtiketler, setSecilenEtiketler] = useState<number[]>(
+    profil?.etiketler.map((t) => t.id) ?? [],
+  );
+
+  // Modal her açıldığında etiket seçimini sıfırla
+  useEffect(() => {
+    if (isOpen) {
+      setSecilenEtiketler(profil?.etiketler.map((t) => t.id) ?? []);
+    }
+  }, [isOpen, profil]);
 
   async function handleSubmit(formData: FormData) {
     const result = isEdit
       ? await updateProfil(profil.id, formData)
       : await createProfil(formData);
-    if (result.ok) {
-      toast.success(isEdit ? "Profil güncellendi" : "Profil oluşturuldu");
-      onSaved();
-    } else {
+    if (!result.ok) {
       toast.error(result.error);
+      return;
     }
+    // Profil kaydedildikten sonra etiketleri uygula
+    // Yeni profil ise: kod ile bul (UI'da id yok)
+    if (isEdit) {
+      await setCariTags(profil.id, secilenEtiketler);
+    } else if (secilenEtiketler.length > 0) {
+      // Yeni profilin id'sini al
+      const kod = formData.get("kod") as string;
+      const yeniProfil = await fetch(
+        `/api/internal/cari-by-kod?kod=${encodeURIComponent(kod)}`,
+      )
+        .then((r) => r.json())
+        .catch(() => null);
+      if (yeniProfil?.id) {
+        await setCariTags(yeniProfil.id, secilenEtiketler);
+      }
+    }
+    toast.success(isEdit ? "Profil güncellendi" : "Profil oluşturuldu");
+    onSaved();
   }
 
   function onAction(formData: FormData) {
     startTransition(() => {
       void handleSubmit(formData);
     });
+  }
+
+  function toggleEtiket(id: number) {
+    setSecilenEtiketler((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
   }
 
   // Anahtar — modal her açılışta input'ları sıfırla
@@ -231,6 +272,49 @@ export function ProfilDialog({
           />
         </Field>
 
+        {/* Etiketler */}
+        {tumEtiketler.length > 0 ? (
+          <Field>
+            <Label htmlFor="">Etiketler</Label>
+            <div className="flex flex-wrap gap-1.5">
+              {tumEtiketler.map((t) => {
+                const isSelected = secilenEtiketler.includes(t.id);
+                const c = tagColorClass[t.renk as TagColor] ?? tagColorClass.gray;
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => toggleEtiket(t.id)}
+                    className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition-all"
+                    style={{
+                      background: isSelected ? c.bg : "var(--surface)",
+                      color: isSelected ? c.text : "var(--text-muted)",
+                      borderColor: isSelected ? c.border : "var(--border-strong)",
+                    }}
+                  >
+                    {isSelected ? (
+                      <Check size={11} />
+                    ) : (
+                      <TagIcon size={11} />
+                    )}
+                    {t.ad}
+                  </button>
+                );
+              })}
+            </div>
+          </Field>
+        ) : (
+          <Field>
+            <Label htmlFor="">Etiketler</Label>
+            <p
+              className="text-xs"
+              style={{ color: "var(--text-soft)" }}
+            >
+              Henüz etiket yok. Ayarlar &gt; Etiketler menüsünden oluşturabilirsin.
+            </p>
+          </Field>
+        )}
+
         <Field>
           <label className="inline-flex cursor-pointer items-center gap-2 text-sm">
             <input
@@ -239,7 +323,7 @@ export function ProfilDialog({
               value="true"
               defaultChecked={profil?.aktif ?? true}
               className="size-4 rounded"
-              style={{ accentColor: "var(--brand)" }}
+              style={{ accentColor: "var(--accent)" }}
             />
             <span>Aktif</span>
           </label>

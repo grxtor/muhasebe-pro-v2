@@ -33,11 +33,19 @@ model User {
   sessions Session[]
 
   // Sahip olduğu veriler — kaskat silme
-  cariler   Cari[]
-  hareketler Hareket[]
-  odemeNotlari OdemeNotu[]
-  faturalar Fatura[]
-  dekontlar Dekont[]
+  cariler         Cari[]
+  hareketler      Hareket[]
+  odemeNotlari    OdemeNotu[]
+  faturalar       Fatura[]
+  dekontlar       Dekont[]
+  ayarlar         UserSettings?
+  sirketBilgisi   SirketBilgisi?
+  etiketler       Tag[]
+  hatirlaticilar  Hatirlatici[]
+  tekrarlayanlar  TekrarlayanKayit[]
+  urunler         Urun[]
+  stokHareketleri StokHareketi[]
+  auditLogs       AuditLog[]
 
   @@index([email])
 }
@@ -145,9 +153,12 @@ model Cari {
   olusturmaTarihi DateTime @default(now())
   guncellemeTarihi DateTime @updatedAt
 
-  hareketler   Hareket[]
-  odemeNotlari OdemeNotu[]
-  faturalar    Fatura[]
+  hareketler     Hareket[]
+  odemeNotlari   OdemeNotu[]
+  faturalar      Fatura[]
+  etiketler      CariTag[]
+  hatirlaticilar Hatirlatici[]
+  tekrarlayanlar TekrarlayanKayit[]
 
   @@unique([userId, kod])
   @@index([userId])
@@ -231,7 +242,8 @@ model Fatura {
   durum        FaturaDurumu @default(Beklemede)
   notlar       String?
 
-  odemeNotu OdemeNotu?
+  odemeNotu      OdemeNotu?
+  hatirlaticilar Hatirlatici[]
 
   olusturmaTarihi  DateTime @default(now())
   guncellemeTarihi DateTime @updatedAt
@@ -267,3 +279,253 @@ model Dekont {
   @@index([faturaId])
   @@index([hareketId])
 }
+
+// ============================================================
+//  Ayarlar & Kişiselleştirme
+// ============================================================
+
+/// Kullanıcının uygulama içi tercihleri.
+model UserSettings {
+  userId             String  @id
+  user               User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Tema: light | dark | system
+  tema               String  @default("system")
+  // Tablo yoğunluğu: comfortable | compact
+  yogunluk           String  @default("comfortable")
+  // Bildirim tercihleri
+  emailBildirim      Boolean @default(true)
+  pushBildirim       Boolean @default(false)
+  vadeUyariGun       Int     @default(3) // X gün önceden uyar
+  // Varsayılanlar
+  defaultKdvOrani    Decimal @default(20) @db.Decimal(5, 2)
+  defaultParaBirimi  String  @default("TRY") @db.VarChar(3)
+  defaultVadeGun     Int     @default(30)
+
+  guncellemeTarihi DateTime @updatedAt
+}
+
+/// Faturada ve dekontta basılacak şirket bilgileri.
+model SirketBilgisi {
+  userId        String  @id
+  user          User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sirketAdi     String?
+  vergiNo       String?
+  vergiDairesi  String?
+  tcKimlikNo    String?
+  adres         String?
+  sehir         String?
+  ulke          String  @default("Türkiye")
+  telefon       String?
+  email         String?
+  website       String?
+  iban          String?
+  bankaAdi      String?
+  logoUrl       String?
+  // Beyaz etiket (kendi marka adıyla satmak için)
+  markaAdi      String?
+  markaRengi    String? // hex
+  markaLogoUrl  String?
+  markaAktif    Boolean @default(false)
+
+  guncellemeTarihi DateTime @updatedAt
+}
+
+// ============================================================
+//  Etiket sistemi
+// ============================================================
+
+model Tag {
+  id     Int    @id @default(autoincrement())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ad     String
+  renk   String @default("gray") // gray, red, orange, yellow, green, blue, purple, pink
+  aciklama String?
+  olusturmaTarihi DateTime @default(now())
+  cariler CariTag[]
+
+  @@unique([userId, ad])
+  @@index([userId])
+}
+
+model CariTag {
+  cariId Int
+  tagId  Int
+  cari   Cari @relation(fields: [cariId], references: [id], onDelete: Cascade)
+  tag    Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([cariId, tagId])
+  @@index([tagId])
+}
+
+// ============================================================
+//  Hatırlatıcılar / Görevler
+// ============================================================
+
+enum HatirlaticiOncelik {
+  Dusuk
+  Normal
+  Yuksek
+}
+
+model Hatirlatici {
+  id     Int    @id @default(autoincrement())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  baslik           String
+  aciklama         String?
+  hatirlatmaTarihi DateTime
+  tamamlandi       Boolean  @default(false)
+  tamamlanmaTarihi DateTime?
+  oncelik          HatirlaticiOncelik @default(Normal)
+  // İlişkili kayıtlar (opsiyonel)
+  cariId   Int?
+  cari     Cari?    @relation(fields: [cariId], references: [id], onDelete: SetNull)
+  faturaId Int?
+  fatura   Fatura?  @relation(fields: [faturaId], references: [id], onDelete: SetNull)
+
+  olusturmaTarihi DateTime @default(now())
+
+  @@index([userId, tamamlandi, hatirlatmaTarihi])
+  @@index([cariId])
+  @@index([faturaId])
+}
+
+// ============================================================
+//  Tekrarlayan kayıtlar (kira, abonelik vs.)
+// ============================================================
+
+enum TekrarSiklik {
+  Gunluk
+  Haftalik
+  Aylik
+  Uc_Aylik
+  Alti_Aylik
+  Yillik
+}
+
+enum TekrarTip {
+  Fatura
+  OdemeNotu
+}
+
+model TekrarlayanKayit {
+  id     Int    @id @default(autoincrement())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ad     String  // "Ofis kirası", "Internet aboneliği"
+  tip    TekrarTip @default(OdemeNotu)
+  cariId Int
+  cari   Cari @relation(fields: [cariId], references: [id], onDelete: Cascade)
+  // Şablon değerler
+  yon         String  // "Alacak" | "Borc" — OdemeYonu enum string olarak
+  tutar       Decimal @db.Decimal(18, 2)
+  kdvOrani    Decimal @default(20) @db.Decimal(5, 2)
+  paraBirimi  String  @default("TRY") @db.VarChar(3)
+  aciklama    String?
+  vadeGun     Int     @default(30) // Üretim anından kaç gün sonra vade
+  // Zamanlama
+  siklik         TekrarSiklik
+  baslangicTarihi DateTime @db.Date
+  sonrakiTarih    DateTime @db.Date
+  bitisTarihi    DateTime? @db.Date
+  uretilenAdet   Int      @default(0)
+  // Durum
+  aktif          Boolean @default(true)
+  sonUretimTarihi DateTime?
+
+  olusturmaTarihi DateTime @default(now())
+  guncellemeTarihi DateTime @updatedAt
+
+  @@index([userId, aktif, sonrakiTarih])
+  @@index([cariId])
+}
+
+// ============================================================
+//  Stok / Ürün
+// ============================================================
+
+enum StokHareketTipi {
+  Giris  // alış, dönüş, sayım fazlası
+  Cikis  // satış, fire, sayım eksiği
+  Duzeltme
+}
+
+model Urun {
+  id     Int    @id @default(autoincrement())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kod    String
+  ad     String
+  aciklama String?
+  birim  String  @default("Adet") // Adet, Kg, Lt, Mt, M2, M3, Saat, Paket
+  // Fiyatlandırma
+  satisFiyati  Decimal @db.Decimal(18, 2)
+  alisFiyati   Decimal? @db.Decimal(18, 2)
+  kdvOrani     Decimal @default(20) @db.Decimal(5, 2)
+  paraBirimi   String  @default("TRY") @db.VarChar(3)
+  // Stok
+  stok         Decimal @default(0) @db.Decimal(18, 3)
+  minStok      Decimal @default(0) @db.Decimal(18, 3)
+  // Sınıflandırma
+  kategori     String?
+  barkod       String?
+  aktif        Boolean @default(true)
+
+  olusturmaTarihi DateTime @default(now())
+  guncellemeTarihi DateTime @updatedAt
+
+  hareketler StokHareketi[]
+
+  @@unique([userId, kod])
+  @@index([userId, aktif])
+  @@index([userId, kategori])
+  @@index([userId, ad])
+}
+
+model StokHareketi {
+  id     Int    @id @default(autoincrement())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  urunId Int
+  urun   Urun @relation(fields: [urunId], references: [id], onDelete: Cascade)
+  tip       StokHareketTipi
+  miktar    Decimal @db.Decimal(18, 3)
+  birimFiyat Decimal? @db.Decimal(18, 2)
+  toplamTutar Decimal? @db.Decimal(18, 2)
+  notlar    String?
+  belgeNo   String?
+  tarih     DateTime @default(now()) @db.Date
+  // Önceki ve sonraki stok (audit için)
+  oncekiStok Decimal @db.Decimal(18, 3)
+  sonrakiStok Decimal @db.Decimal(18, 3)
+
+  olusturmaTarihi DateTime @default(now())
+
+  @@index([userId, tarih(sort: Desc)])
+  @@index([urunId, tarih(sort: Desc)])
+}
+
+// ============================================================
+//  Audit Log
+// ============================================================
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  islem     String   // "create" | "update" | "delete" | "login" | "logout" | "tahsil" | "ode"
+  entity    String   // "Cari" | "Fatura" | "OdemeNotu" | "Hareket" | "Urun" | "Hatirlatici" | "TekrarlayanKayit" | "Auth"
+  entityId  String?
+  ozet      String   // Kullanıcıya okunabilir özet: "Profil Ahmet Yılmaz oluşturuldu"
+  oncesi    Json?
+  sonrasi   Json?
+  ip        String?
+  userAgent String?  @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([entity, entityId])
+}
+

@@ -13,57 +13,72 @@ export const dynamic = "force-dynamic";
 export default async function ProfillerPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; tip?: string }>;
+  searchParams: Promise<{ q?: string; tip?: string; etiket?: string }>;
 }) {
   const userId = await getUserId();
-  const { q = "", tip = "" } = await searchParams;
+  const { q = "", tip = "", etiket = "" } = await searchParams;
+  const etiketId = etiket ? Number(etiket) : 0;
 
-  const profiller = await db.cari.findMany({
-    where: {
-      userId,
-      ...(tip ? { tip: tip as never } : {}),
-      ...(q
-        ? {
-            OR: [
-              { unvan: { contains: q, mode: "insensitive" } },
-              { kod: { contains: q, mode: "insensitive" } },
-              { email: { contains: q, mode: "insensitive" } },
-              { telefon: { contains: q, mode: "insensitive" } },
-            ],
-          }
-        : {}),
-    },
-    orderBy: { unvan: "asc" },
-    select: {
-      id: true,
-      kod: true,
-      unvan: true,
-      tip: true,
-      telefon: true,
-      email: true,
-      sehir: true,
-      vergiNo: true,
-      tcKimlikNo: true,
-      vergiDairesi: true,
-      adres: true,
-      acilisBakiyesi: true,
-      notlar: true,
-      aktif: true,
-    },
-  });
+  const [profiller, tumEtiketler] = await Promise.all([
+    db.cari.findMany({
+      where: {
+        userId,
+        ...(tip ? { tip: tip as never } : {}),
+        ...(etiketId > 0
+          ? { etiketler: { some: { tagId: etiketId } } }
+          : {}),
+        ...(q
+          ? {
+              OR: [
+                { unvan: { contains: q, mode: "insensitive" } },
+                { kod: { contains: q, mode: "insensitive" } },
+                { email: { contains: q, mode: "insensitive" } },
+                { telefon: { contains: q, mode: "insensitive" } },
+              ],
+            }
+          : {}),
+      },
+      orderBy: { unvan: "asc" },
+      include: {
+        etiketler: {
+          include: {
+            tag: { select: { id: true, ad: true, renk: true } },
+          },
+        },
+      },
+    }),
+    db.tag.findMany({
+      where: { userId },
+      orderBy: { ad: "asc" },
+      select: { id: true, ad: true, renk: true },
+    }),
+  ]);
 
   const sonrakiKod = await nextProfilKodu();
 
-  // Decimal alanları string'e çeviriyoruz, çünkü client'a Decimal nesnesi gönderilemez.
   const serialized = profiller.map((p) => ({
-    ...p,
+    id: p.id,
+    kod: p.kod,
+    unvan: p.unvan,
+    tip: p.tip,
+    telefon: p.telefon,
+    email: p.email,
+    sehir: p.sehir,
+    vergiNo: p.vergiNo,
+    tcKimlikNo: p.tcKimlikNo,
+    vergiDairesi: p.vergiDairesi,
+    adres: p.adres,
     acilisBakiyesi: p.acilisBakiyesi.toString(),
+    notlar: p.notlar,
+    aktif: p.aktif,
+    etiketler: p.etiketler.map((e) => e.tag),
   }));
 
   return (
     <ProfilList
       profiller={serialized}
       sonrakiKod={sonrakiKod}
+      tumEtiketler={tumEtiketler}
       icon={<Users size={20} />}
     />
   );

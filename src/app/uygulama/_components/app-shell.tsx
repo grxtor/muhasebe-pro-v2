@@ -17,6 +17,10 @@ import {
   Sun,
   Menu,
   X,
+  Bell,
+  Repeat,
+  Package,
+  Settings,
 } from "lucide-react";
 import { Button } from "@heroui/react";
 
@@ -25,13 +29,52 @@ interface AppShellProps {
   children: React.ReactNode;
 }
 
-const navItems = [
-  { href: "/uygulama", label: "Anasayfa", icon: Home, exact: true },
-  { href: "/uygulama/alacaklar", label: "Alacaklar", icon: TrendingDown },
-  { href: "/uygulama/borclar", label: "Borçlar", icon: TrendingUp },
-  { href: "/uygulama/profiller", label: "Profiller", icon: Users },
-  { href: "/uygulama/faturalar", label: "Faturalar", icon: Receipt },
-  { href: "/uygulama/hareketler", label: "Hareketler", icon: ListOrdered },
+interface NavItem {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ size?: number }>;
+  exact?: boolean;
+}
+
+interface NavGroup {
+  label?: string;
+  items: NavItem[];
+}
+
+const navGroups: NavGroup[] = [
+  {
+    items: [
+      { href: "/uygulama", label: "Anasayfa", icon: Home, exact: true },
+    ],
+  },
+  {
+    label: "Muhasebe",
+    items: [
+      { href: "/uygulama/alacaklar", label: "Alacaklar", icon: TrendingDown },
+      { href: "/uygulama/borclar", label: "Borçlar", icon: TrendingUp },
+      { href: "/uygulama/faturalar", label: "Faturalar", icon: Receipt },
+      { href: "/uygulama/hareketler", label: "Hareketler", icon: ListOrdered },
+    ],
+  },
+  {
+    label: "Kayıtlar",
+    items: [
+      { href: "/uygulama/profiller", label: "Profiller", icon: Users },
+      { href: "/uygulama/urunler", label: "Ürünler / Stok", icon: Package },
+      {
+        href: "/uygulama/tekrarlayanlar",
+        label: "Tekrarlayan Kayıtlar",
+        icon: Repeat,
+      },
+    ],
+  },
+  {
+    label: "Kişisel",
+    items: [
+      { href: "/uygulama/hatirlaticilar", label: "Hatırlatıcılar", icon: Bell },
+      { href: "/uygulama/ayarlar", label: "Ayarlar", icon: Settings },
+    ],
+  },
 ];
 
 export function AppShell({ user, children }: AppShellProps) {
@@ -68,13 +111,25 @@ export function AppShell({ user, children }: AppShellProps) {
           </span>
           Muhasebe Pro
         </div>
-        <nav className="flex-1 space-y-0.5 p-3">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.href}
-              {...item}
-              active={isActive(item.href, item.exact)}
-            />
+        <nav className="flex-1 space-y-4 overflow-y-auto p-3">
+          {navGroups.map((group, gi) => (
+            <div key={gi} className="space-y-0.5">
+              {group.label && (
+                <div
+                  className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider"
+                  style={{ color: "var(--text-soft)" }}
+                >
+                  {group.label}
+                </div>
+              )}
+              {group.items.map((item) => (
+                <NavLink
+                  key={item.href}
+                  {...item}
+                  active={isActive(item.href, item.exact)}
+                />
+              ))}
+            </div>
           ))}
         </nav>
         <div className="border-t border-white/5 p-3">
@@ -102,8 +157,11 @@ export function AppShell({ user, children }: AppShellProps) {
               <span className="flex items-center gap-2">
                 <span
                   aria-hidden
-                  className="grid size-7 place-items-center rounded-md text-white text-sm"
-                  style={{ background: "var(--sidebar-active-bar)" }}
+                  className="grid size-7 place-items-center rounded-md text-sm"
+                  style={{
+                    background: "var(--sidebar-bg-2)",
+                    color: "var(--sidebar-text-strong)",
+                  }}
                 >
                   ₺
                 </span>
@@ -117,14 +175,26 @@ export function AppShell({ user, children }: AppShellProps) {
                 <X size={18} />
               </button>
             </div>
-            <nav className="flex-1 space-y-0.5 overflow-y-auto p-3">
-              {navItems.map((item) => (
-                <NavLink
-                  key={item.href}
-                  {...item}
-                  active={isActive(item.href, item.exact)}
-                  onClick={() => setMobileOpen(false)}
-                />
+            <nav className="flex-1 space-y-4 overflow-y-auto p-3">
+              {navGroups.map((group, gi) => (
+                <div key={gi} className="space-y-0.5">
+                  {group.label && (
+                    <div
+                      className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider"
+                      style={{ color: "var(--text-soft)" }}
+                    >
+                      {group.label}
+                    </div>
+                  )}
+                  {group.items.map((item) => (
+                    <NavLink
+                      key={item.href}
+                      {...item}
+                      active={isActive(item.href, item.exact)}
+                      onClick={() => setMobileOpen(false)}
+                    />
+                  ))}
+                </div>
               ))}
             </nav>
             <div className="border-t border-white/5 p-3">

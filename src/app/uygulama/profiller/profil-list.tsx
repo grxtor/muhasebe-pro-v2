@@ -3,7 +3,16 @@
 import { useState, useTransition, useDeferredValue, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@heroui/react";
-import { Plus, Pencil, Trash2, Users, Search, Phone, Mail } from "lucide-react";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Users,
+  Search,
+  Phone,
+  Mail,
+  Tag as TagIcon,
+} from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -11,7 +20,18 @@ import { Select, TextInput } from "@/components/ui/form-field";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ProfilDialog } from "./profil-dialog";
 import { deleteProfil } from "./actions";
-import { CariTipi, cariTipiEtiket } from "@/lib/enums";
+import {
+  CariTipi,
+  cariTipiEtiket,
+  tagColorClass,
+  type TagColor,
+} from "@/lib/enums";
+
+export interface TagRef {
+  id: number;
+  ad: string;
+  renk: string;
+}
 
 export interface ProfilRow {
   id: number;
@@ -28,15 +48,17 @@ export interface ProfilRow {
   acilisBakiyesi: string;
   notlar: string | null;
   aktif: boolean;
+  etiketler: TagRef[];
 }
 
 interface Props {
   profiller: ProfilRow[];
   sonrakiKod: string;
+  tumEtiketler: TagRef[];
   icon?: React.ReactNode;
 }
 
-export function ProfilList({ profiller, sonrakiKod }: Props) {
+export function ProfilList({ profiller, sonrakiKod, tumEtiketler }: Props) {
   const router = useRouter();
   const params = useSearchParams();
   const [pending, startTransition] = useTransition();
@@ -44,6 +66,7 @@ export function ProfilList({ profiller, sonrakiKod }: Props) {
   const [localQ, setLocalQ] = useState(params.get("q") ?? "");
   const deferredQ = useDeferredValue(localQ);
   const tip = params.get("tip") ?? "";
+  const etiket = params.get("etiket") ?? "";
 
   // URL ile senkron — yazınca arama refleksif olarak yapılır
   useEffect(() => {
@@ -56,10 +79,10 @@ export function ProfilList({ profiller, sonrakiKod }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deferredQ]);
 
-  function changeTip(value: string) {
+  function setParam(key: string, value: string) {
     const url = new URLSearchParams(params.toString());
-    if (value) url.set("tip", value);
-    else url.delete("tip");
+    if (value) url.set(key, value);
+    else url.delete(key);
     startTransition(() => {
       router.replace(`/uygulama/profiller?${url.toString()}`, { scroll: false });
     });
@@ -112,7 +135,7 @@ export function ProfilList({ profiller, sonrakiKod }: Props) {
         }
       />
 
-      <div className="mb-4 grid gap-2 sm:grid-cols-[1fr_220px]">
+      <div className="mb-4 grid gap-2 sm:grid-cols-[1fr_180px_180px]">
         <div className="relative">
           <Search
             size={16}
@@ -126,11 +149,22 @@ export function ProfilList({ profiller, sonrakiKod }: Props) {
             className="pl-9"
           />
         </div>
-        <Select value={tip} onChange={(e) => changeTip(e.target.value)}>
-          <option value="">Tüm tipler</option>
+        <Select value={tip} onChange={(e) => setParam("tip", e.target.value)}>
+          <option value="">Tüm Tipler</option>
           <option value={CariTipi.Musteri}>{cariTipiEtiket.Musteri}</option>
           <option value={CariTipi.Tedarikci}>{cariTipiEtiket.Tedarikci}</option>
           <option value={CariTipi.HerIkisi}>{cariTipiEtiket.HerIkisi}</option>
+        </Select>
+        <Select
+          value={etiket}
+          onChange={(e) => setParam("etiket", e.target.value)}
+        >
+          <option value="">Tüm Etiketler</option>
+          {tumEtiketler.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.ad}
+            </option>
+          ))}
         </Select>
       </div>
 
@@ -192,17 +226,38 @@ export function ProfilList({ profiller, sonrakiKod }: Props) {
                     </td>
                     <td className="px-4 py-3">
                       <div className="font-medium">{p.unvan}</div>
-                      {!p.aktif && (
-                        <span
-                          className="mt-0.5 inline-block rounded px-1.5 py-0.5 text-[10px] uppercase"
-                          style={{
-                            background: "var(--surface-muted)",
-                            color: "var(--text-soft)",
-                          }}
-                        >
-                          Pasif
-                        </span>
-                      )}
+                      <div className="mt-1 flex flex-wrap items-center gap-1">
+                        {!p.aktif && (
+                          <span
+                            className="inline-block rounded px-1.5 py-0.5 text-[10px] uppercase"
+                            style={{
+                              background: "var(--surface-muted)",
+                              color: "var(--text-soft)",
+                            }}
+                          >
+                            Pasif
+                          </span>
+                        )}
+                        {p.etiketler.map((t) => {
+                          const c =
+                            tagColorClass[t.renk as TagColor] ??
+                            tagColorClass.gray;
+                          return (
+                            <span
+                              key={t.id}
+                              className="inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-medium"
+                              style={{
+                                background: c.bg,
+                                color: c.text,
+                                borderColor: c.border,
+                              }}
+                            >
+                              <TagIcon size={9} />
+                              {t.ad}
+                            </span>
+                          );
+                        })}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <span
@@ -280,6 +335,7 @@ export function ProfilList({ profiller, sonrakiKod }: Props) {
         isOpen={dialogOpen}
         profil={editingProfil}
         sonrakiKod={sonrakiKod}
+        tumEtiketler={tumEtiketler}
         onClose={() => setDialogOpen(false)}
         onSaved={() => {
           setDialogOpen(false);

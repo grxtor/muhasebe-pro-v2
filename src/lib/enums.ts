@@ -78,3 +78,131 @@ export const hareketTipiEtiket: Record<HareketTipi, string> = {
   Borc: "Borç",
   Alacak: "Alacak",
 };
+
+/* ============================================================
+   Hatırlatıcı öncelikleri
+   ============================================================ */
+export const HatirlaticiOncelik = {
+  Dusuk: "Dusuk",
+  Normal: "Normal",
+  Yuksek: "Yuksek",
+} as const;
+export type HatirlaticiOncelik =
+  (typeof HatirlaticiOncelik)[keyof typeof HatirlaticiOncelik];
+
+export const hatirlaticiOncelikEtiket: Record<HatirlaticiOncelik, string> = {
+  Dusuk: "Düşük",
+  Normal: "Normal",
+  Yuksek: "Yüksek",
+};
+
+/* ============================================================
+   Tekrar sıklığı
+   ============================================================ */
+export const TekrarSiklik = {
+  Gunluk: "Gunluk",
+  Haftalik: "Haftalik",
+  Aylik: "Aylik",
+  Uc_Aylik: "Uc_Aylik",
+  Alti_Aylik: "Alti_Aylik",
+  Yillik: "Yillik",
+} as const;
+export type TekrarSiklik = (typeof TekrarSiklik)[keyof typeof TekrarSiklik];
+
+export const tekrarSiklikEtiket: Record<TekrarSiklik, string> = {
+  Gunluk: "Günlük",
+  Haftalik: "Haftalık",
+  Aylik: "Aylık",
+  Uc_Aylik: "3 Aylık",
+  Alti_Aylik: "6 Aylık",
+  Yillik: "Yıllık",
+};
+
+export const TekrarTip = {
+  Fatura: "Fatura",
+  OdemeNotu: "OdemeNotu",
+} as const;
+export type TekrarTip = (typeof TekrarTip)[keyof typeof TekrarTip];
+
+export const tekrarTipEtiket: Record<TekrarTip, string> = {
+  Fatura: "Fatura",
+  OdemeNotu: "Alacak / Borç",
+};
+
+/* ============================================================
+   Stok hareket tipi
+   ============================================================ */
+export const StokHareketTipi = {
+  Giris: "Giris",
+  Cikis: "Cikis",
+  Duzeltme: "Duzeltme",
+} as const;
+export type StokHareketTipi =
+  (typeof StokHareketTipi)[keyof typeof StokHareketTipi];
+
+export const stokHareketTipiEtiket: Record<StokHareketTipi, string> = {
+  Giris: "Giriş",
+  Cikis: "Çıkış",
+  Duzeltme: "Düzeltme",
+};
+
+/* ============================================================
+   Etiket renkleri (Tag.renk)
+   ============================================================ */
+export const TAG_COLORS = [
+  "gray",
+  "red",
+  "orange",
+  "yellow",
+  "green",
+  "blue",
+  "purple",
+  "pink",
+] as const;
+export type TagColor = (typeof TAG_COLORS)[number];
+
+export const tagColorClass: Record<
+  TagColor,
+  { bg: string; text: string; border: string }
+> = {
+  gray: {
+    bg: "var(--surface-muted)",
+    text: "var(--text-muted)",
+    border: "var(--border)",
+  },
+  red: {
+    bg: "var(--negative-soft)",
+    text: "var(--negative)",
+    border: "color-mix(in oklch, var(--negative) 30%, transparent)",
+  },
+  orange: {
+    bg: "var(--warning-soft)",
+    text: "var(--warning)",
+    border: "color-mix(in oklch, var(--warning) 30%, transparent)",
+  },
+  yellow: {
+    bg: "oklch(0.95 0.08 90)",
+    text: "oklch(0.5 0.13 90)",
+    border: "oklch(0.7 0.13 90 / 0.4)",
+  },
+  green: {
+    bg: "var(--positive-soft)",
+    text: "var(--positive)",
+    border: "color-mix(in oklch, var(--positive) 30%, transparent)",
+  },
+  blue: {
+    bg: "oklch(0.95 0.05 250)",
+    text: "oklch(0.5 0.18 250)",
+    border: "oklch(0.7 0.15 250 / 0.4)",
+  },
+  purple: {
+    bg: "oklch(0.95 0.05 290)",
+    text: "oklch(0.5 0.18 290)",
+    border: "oklch(0.7 0.15 290 / 0.4)",
+  },
+  pink: {
+    bg: "oklch(0.95 0.05 350)",
+    text: "oklch(0.55 0.18 350)",
+    border: "oklch(0.7 0.15 350 / 0.4)",
+  },
+};
