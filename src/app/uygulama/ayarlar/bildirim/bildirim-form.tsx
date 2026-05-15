@@ -29,8 +29,8 @@ export function BildirimForm({ initial }: Props) {
   return (
     <form action={(fd) => start(() => void submit(fd))} className="space-y-6">
       <SectionCard
-        title="Bildirimler"
-        description="Vade hatırlatıcıları ve aktivite uyarıları"
+        title="Bildirimler — sadece sen"
+        description="Bu tercihler sadece senin için geçerli. Diğer üyeler kendi tercihlerini ayarlar."
       >
         <div className="space-y-3">
           <ToggleRow
@@ -74,8 +74,8 @@ export function BildirimForm({ initial }: Props) {
       </SectionCard>
 
       <SectionCard
-        title="Varsayılan Değerler"
-        description="Yeni kayıt ekrarken otomatik doldurulan alanlar"
+        title="Şirket Varsayılanları — tüm üyeler için"
+        description="Yeni kayıt eklerken otomatik doldurulan değerler. Sadece Sahip ve Yönetici değiştirebilir."
       >
         <div className="grid gap-4 sm:grid-cols-3">
           <Field>
