@@ -4,6 +4,7 @@ import { useTransition } from "react";
 import { Button } from "@heroui/react";
 import { toast } from "sonner";
 import { DataModal } from "@/components/ui/data-modal";
+import { DekontList } from "@/components/ui/dekont-list";
 import {
   Field,
   Label,
@@ -232,6 +233,14 @@ export function OdemeNotuDialog({
 
         <input type="hidden" name="paraBirimi" value="TRY" />
       </form>
+
+      {/* Dekont upload */}
+      <div className="mt-4">
+        <DekontList
+          hedef={{ tip: "odemeNotu", id: isEdit && notu ? notu.id : 0 }}
+          pendingMessage={`Dekont eklemek için önce ${isAlacak ? "alacak" : "borç"} kaydını oluşturun, sonra düzenleme ile dosya yükleyin.`}
+        />
+      </div>
     </DataModal>
   );
 }

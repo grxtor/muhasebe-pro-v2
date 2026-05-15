@@ -8,19 +8,21 @@ import {
   FileText,
   Image as ImageIcon,
   Download,
-  ExternalLink,
 } from "lucide-react";
 import { Button } from "@heroui/react";
 import { toast } from "sonner";
 import {
-  listFaturaDekontlari,
-  uploadFaturaDekonti,
-  deleteFaturaDekonti,
+  listDekontlar,
+  uploadDekontlar,
+  deleteDekont,
+  type DekontHedef,
   type DekontDto,
-} from "./dekont-actions";
+} from "@/lib/dekont-actions";
 
 interface Props {
-  faturaId: number;
+  hedef: DekontHedef;
+  /** Yeni kayıtlar için bilgi mesajı */
+  pendingMessage?: string;
 }
 
 function formatBytes(b: number): string {
@@ -34,18 +36,27 @@ function fileIcon(mime: string | null) {
   return FileText;
 }
 
-export function DekontList({ faturaId }: Props) {
+export function DekontList({ hedef, pendingMessage }: Props) {
   const [items, setItems] = useState<DekontDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, startUpload] = useTransition();
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // Yeni kayıt için (id=0) yükleme yapılamaz
+  const newRecord = hedef.id === 0;
+
   useEffect(() => {
-    void listFaturaDekontlari(faturaId).then((data) => {
+    if (newRecord) {
+      setItems([]);
+      setLoading(false);
+      return;
+    }
+    void listDekontlar(hedef).then((data) => {
       setItems(data);
       setLoading(false);
     });
-  }, [faturaId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hedef.tip, hedef.id]);
 
   function onPickFiles() {
     fileRef.current?.click();
@@ -58,11 +69,10 @@ export function DekontList({ faturaId }: Props) {
     startUpload(async () => {
       const fd = new FormData();
       for (const f of files) fd.append("dosya", f);
-      const r = await uploadFaturaDekonti(faturaId, fd);
+      const r = await uploadDekontlar(hedef, fd);
       if (r.ok) {
         toast.success(`${r.data?.length ?? 0} dosya yüklendi`);
-        // Listeyi yenile
-        const fresh = await listFaturaDekontlari(faturaId);
+        const fresh = await listDekontlar(hedef);
         setItems(fresh);
       } else {
         toast.error(r.error);
@@ -73,7 +83,7 @@ export function DekontList({ faturaId }: Props) {
 
   async function onDelete(id: number) {
     if (!confirm("Bu dekont silinsin mi?")) return;
-    const r = await deleteFaturaDekonti(id);
+    const r = await deleteDekont(id);
     if (r.ok) {
       toast.success("Dekont silindi");
       setItems((prev) => prev.filter((i) => i.id !== id));
@@ -95,16 +105,18 @@ export function DekontList({ faturaId }: Props) {
           <Paperclip size={14} />
           Ekli Dosyalar ({items.length})
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onPress={onPickFiles}
-          isDisabled={uploading}
-        >
-          <span className="inline-flex items-center gap-1.5">
-            <Upload size={13} /> {uploading ? "Yükleniyor…" : "Dosya Ekle"}
-          </span>
-        </Button>
+        {!newRecord && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onPress={onPickFiles}
+            isDisabled={uploading}
+          >
+            <span className="inline-flex items-center gap-1.5">
+              <Upload size={13} /> {uploading ? "Yükleniyor…" : "Dosya Ekle"}
+            </span>
+          </Button>
+        )}
       </div>
 
       <input
@@ -116,7 +128,16 @@ export function DekontList({ faturaId }: Props) {
         className="hidden"
       />
 
-      {loading ? (
+      {newRecord ? (
+        <div
+          className="py-4 text-center text-xs"
+          style={{ color: "var(--text-soft)" }}
+        >
+          💡{" "}
+          {pendingMessage ??
+            "Dosya eklemek için önce kaydı oluştur, sonra düzenleme ile dosya yükle."}
+        </div>
+      ) : loading ? (
         <div
           className="py-4 text-center text-xs"
           style={{ color: "var(--text-muted)" }}
@@ -128,7 +149,7 @@ export function DekontList({ faturaId }: Props) {
           className="py-4 text-center text-xs"
           style={{ color: "var(--text-soft)" }}
         >
-          Henüz dekont eklenmemiş. PDF, görsel ekleyebilirsin.
+          Henüz dosya eklenmemiş. PDF, görsel ekleyebilirsin.
         </div>
       ) : (
         <ul className="space-y-1">

@@ -5,6 +5,7 @@ import { Button } from "@heroui/react";
 import { Tag as TagIcon, Check } from "lucide-react";
 import { toast } from "sonner";
 import { DataModal } from "@/components/ui/data-modal";
+import { DekontList } from "@/components/ui/dekont-list";
 import {
   Field,
   Label,
@@ -329,6 +330,14 @@ export function ProfilDialog({
           </label>
         </Field>
       </form>
+
+      {/* Dekont/Belge upload */}
+      <div className="mt-4">
+        <DekontList
+          hedef={{ tip: "cari", id: isEdit && profil ? profil.id : 0 }}
+          pendingMessage="Belge (sözleşme, kimlik kopyası, vs.) eklemek için önce profili kaydedin."
+        />
+      </div>
     </DataModal>
   );
 }
