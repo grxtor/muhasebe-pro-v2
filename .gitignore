@@ -63,3 +63,7 @@ prisma/migrations/dev.db*
 # Backup
 *.bak
 *.backup
+
+# Electron build çıktıları
+/dist-electron/
+/release/
