@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { getUserId } from "@/lib/auth-helpers";
+import { getOrgId } from "@/lib/auth-helpers";
 import { SirketForm } from "./sirket-form";
 import { LogoUpload } from "./logo-upload";
 
@@ -7,26 +7,27 @@ export const metadata = { title: "Şirket Bilgileri" };
 export const dynamic = "force-dynamic";
 
 export default async function SirketAyarlariPage() {
-  const userId = await getUserId();
-  const sirket = await db.sirketBilgisi.findUnique({ where: { userId } });
+  const orgId = await getOrgId();
+  const org = await db.organization.findUnique({ where: { id: orgId } });
   return (
     <div className="space-y-6">
-      <LogoUpload currentUrl={sirket?.logoUrl ?? null} />
+      <LogoUpload currentUrl={org?.logoUrl ?? null} />
       <SirketForm
         initial={{
-          sirketAdi: sirket?.sirketAdi ?? "",
-          vergiNo: sirket?.vergiNo ?? "",
-          vergiDairesi: sirket?.vergiDairesi ?? "",
-          tcKimlikNo: sirket?.tcKimlikNo ?? "",
-          adres: sirket?.adres ?? "",
-          sehir: sirket?.sehir ?? "",
-          ulke: sirket?.ulke ?? "Türkiye",
-          telefon: sirket?.telefon ?? "",
-          email: sirket?.email ?? "",
-          website: sirket?.website ?? "",
-          iban: sirket?.iban ?? "",
-          bankaAdi: sirket?.bankaAdi ?? "",
-          logoUrl: sirket?.logoUrl ?? "",
+          ad: org?.ad ?? "",
+          sirketAdi: org?.sirketAdi ?? "",
+          vergiNo: org?.vergiNo ?? "",
+          vergiDairesi: org?.vergiDairesi ?? "",
+          tcKimlikNo: org?.tcKimlikNo ?? "",
+          adres: org?.adres ?? "",
+          sehir: org?.sehir ?? "",
+          ulke: org?.ulke ?? "Türkiye",
+          telefon: org?.telefon ?? "",
+          email: org?.email ?? "",
+          website: org?.website ?? "",
+          iban: org?.iban ?? "",
+          bankaAdi: org?.bankaAdi ?? "",
+          logoUrl: org?.logoUrl ?? "",
         }}
       />
     </div>
