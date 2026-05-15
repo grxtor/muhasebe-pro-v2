@@ -200,7 +200,9 @@ function NavLink({
       onClick={onClick}
       className="relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors"
       style={{
-        background: active ? "rgba(99, 102, 241, 0.18)" : "transparent",
+        background: active
+          ? "color-mix(in oklch, var(--brand) 22%, transparent)"
+          : "transparent",
         color: active ? "var(--sidebar-text-strong)" : "var(--sidebar-text)",
         fontWeight: active ? 500 : 400,
       }}

@@ -5,7 +5,9 @@
 @import "@heroui/styles";
 
 /* ============================================================
-   Muhasebe Pro — özel design tokens
+   Muhasebe Pro — sade renk paleti
+   Kural: tek brand (indigo) + SAF gri tonları (no blue tint) +
+   2 semantic (yeşil/kırmızı). Hiç ekstra mavi/lacivert yok.
    ============================================================ */
 
 @theme inline {
@@ -13,7 +15,6 @@
     "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 
-  /* Yarıçap ölçeği */
   --radius-xs: 6px;
   --radius-sm: 8px;
   --radius-md: 10px;
@@ -21,80 +22,83 @@
   --radius-xl: 16px;
   --radius-2xl: 20px;
 
-  /* Gölge ölçeği */
-  --shadow-soft: 0 1px 2px oklch(0.2 0.02 250 / 0.04),
-    0 1px 3px oklch(0.2 0.02 250 / 0.06);
-  --shadow-pop: 0 8px 24px oklch(0.2 0.02 250 / 0.08),
-    0 2px 6px oklch(0.2 0.02 250 / 0.04);
+  --shadow-soft: 0 1px 2px oklch(0 0 0 / 0.04),
+    0 1px 3px oklch(0 0 0 / 0.06);
+  --shadow-pop: 0 8px 24px oklch(0 0 0 / 0.08),
+    0 2px 6px oklch(0 0 0 / 0.04);
 }
 
 /* ============================================================
-   Light tema — Muhasebe Pro markalama
+   Light tema
    ============================================================ */
 :root {
-  /* Yüzeyler */
-  --app-bg: oklch(0.984 0.003 247);
+  /* Yüzeyler — SAF gri (chroma 0, hue 0) */
+  --app-bg: oklch(0.985 0 0);
   --surface: oklch(1 0 0);
-  --surface-muted: oklch(0.968 0.005 247);
-  --border: oklch(0.92 0.008 247);
-  --border-strong: oklch(0.88 0.012 247);
+  --surface-muted: oklch(0.96 0 0);
+  --border: oklch(0.92 0 0);
+  --border-strong: oklch(0.86 0 0);
 
-  /* Metin */
-  --text: oklch(0.22 0.03 264);
-  --text-muted: oklch(0.5 0.02 257);
-  --text-soft: oklch(0.65 0.015 257);
+  /* Metin — SAF gri */
+  --text: oklch(0.2 0 0);
+  --text-muted: oklch(0.48 0 0);
+  --text-soft: oklch(0.62 0 0);
 
-  /* Marka */
+  /* Brand — TEK indigo (her şey buradan beslenir) */
   --brand: oklch(0.55 0.21 270);
+  --brand-strong: oklch(0.48 0.22 270);
   --brand-soft: oklch(0.96 0.025 270);
 
-  /* Semantik */
+  /* Semantic — yeşil ve kırmızı */
   --positive: oklch(0.55 0.14 160);
   --positive-soft: oklch(0.96 0.04 160);
   --negative: oklch(0.55 0.21 25);
   --negative-soft: oklch(0.96 0.04 25);
-  --warning: oklch(0.7 0.16 75);
-  --warning-soft: oklch(0.96 0.05 75);
 
-  /* Sidebar (her temada koyu kalır) */
-  --sidebar-bg: oklch(0.22 0.03 264);
-  --sidebar-bg-2: oklch(0.28 0.04 264);
-  --sidebar-text: oklch(0.78 0.015 257);
-  --sidebar-text-strong: oklch(0.98 0.003 247);
-  --sidebar-active: oklch(0.68 0.19 270);
+  /* Warning sade, kırmızı tonu yok → kahverengi-amber */
+  --warning: oklch(0.6 0.13 70);
+  --warning-soft: oklch(0.96 0.05 70);
+
+  /* Sidebar — SAF koyu gri (mavi tonu yok) */
+  --sidebar-bg: oklch(0.18 0 0);
+  --sidebar-bg-2: oklch(0.22 0 0);
+  --sidebar-text: oklch(0.72 0 0);
+  --sidebar-text-strong: oklch(0.98 0 0);
+  --sidebar-active: var(--brand);
 }
 
 /* ============================================================
-   Dark tema
+   Dark tema — saf koyu gri, mavi tonu yok
    ============================================================ */
 .dark,
 [data-theme="dark"] {
-  --app-bg: oklch(0.16 0.02 264);
-  --surface: oklch(0.22 0.025 264);
-  --surface-muted: oklch(0.26 0.025 264);
-  --border: oklch(0.32 0.025 264);
-  --border-strong: oklch(0.4 0.03 264);
+  --app-bg: oklch(0.15 0 0);
+  --surface: oklch(0.2 0 0);
+  --surface-muted: oklch(0.24 0 0);
+  --border: oklch(0.3 0 0);
+  --border-strong: oklch(0.38 0 0);
 
-  --text: oklch(0.97 0.005 247);
-  --text-muted: oklch(0.72 0.015 257);
-  --text-soft: oklch(0.55 0.02 257);
+  --text: oklch(0.96 0 0);
+  --text-muted: oklch(0.7 0 0);
+  --text-soft: oklch(0.55 0 0);
 
-  --brand: oklch(0.7 0.18 270);
-  --brand-soft: oklch(0.3 0.08 270);
+  --brand: oklch(0.7 0.2 270);
+  --brand-strong: oklch(0.75 0.2 270);
+  --brand-soft: oklch(0.28 0.08 270);
 
   --positive: oklch(0.7 0.14 160);
-  --positive-soft: oklch(0.3 0.06 160);
+  --positive-soft: oklch(0.28 0.06 160);
   --negative: oklch(0.7 0.18 25);
-  --negative-soft: oklch(0.32 0.08 25);
-  --warning: oklch(0.78 0.14 75);
-  --warning-soft: oklch(0.32 0.08 75);
+  --negative-soft: oklch(0.3 0.08 25);
+  --warning: oklch(0.75 0.13 70);
+  --warning-soft: oklch(0.3 0.08 70);
 
-  --sidebar-bg: oklch(0.13 0.02 264);
-  --sidebar-bg-2: oklch(0.17 0.02 264);
+  --sidebar-bg: oklch(0.12 0 0);
+  --sidebar-bg-2: oklch(0.16 0 0);
 }
 
 /* ============================================================
-   Temel sıfırlama / gövde
+   Temel
    ============================================================ */
 html,
 body {
@@ -108,20 +112,17 @@ body {
   font-family: var(--font-sans);
 }
 
-/* Selection */
 ::selection {
   background: var(--brand);
   color: white;
 }
 
-/* Focus halkası — accessibility */
 :focus-visible {
   outline: 2px solid var(--brand);
   outline-offset: 2px;
   border-radius: 4px;
 }
 
-/* Tablolarda monospaced rakamlar (muhasebe için kritik) */
 .tabular-nums,
 table {
   font-variant-numeric: tabular-nums;
