@@ -5,9 +5,9 @@
 @import "@heroui/styles";
 
 /* ============================================================
-   Muhasebe Pro — sade renk paleti
-   Kural: tek brand (indigo) + SAF gri tonları (no blue tint) +
-   2 semantic (yeşil/kırmızı). Hiç ekstra mavi/lacivert yok.
+   Muhasebe Pro — TAM MONOKROM palet
+   Sadece: saf gri ölçeği + yeşil (positive) + kırmızı (negative).
+   Hiçbir mavi/lacivert/indigo yok.
    ============================================================ */
 
 @theme inline {
@@ -29,46 +29,55 @@
 }
 
 /* ============================================================
-   Light tema
+   LIGHT TEMA — saf gri ölçeği
    ============================================================ */
 :root {
-  /* Yüzeyler — SAF gri (chroma 0, hue 0) */
+  /* Yüzeyler */
   --app-bg: oklch(0.985 0 0);
   --surface: oklch(1 0 0);
   --surface-muted: oklch(0.96 0 0);
   --border: oklch(0.92 0 0);
   --border-strong: oklch(0.86 0 0);
 
-  /* Metin — SAF gri */
+  /* Metin */
   --text: oklch(0.2 0 0);
   --text-muted: oklch(0.48 0 0);
   --text-soft: oklch(0.62 0 0);
 
-  /* Brand — TEK indigo (her şey buradan beslenir) */
-  --brand: oklch(0.55 0.21 270);
-  --brand-strong: oklch(0.48 0.22 270);
-  --brand-soft: oklch(0.96 0.025 270);
+  /* Brand = SİYAH (light mode'da). Buton arkaplanı, vurgu için. */
+  --brand: oklch(0.2 0 0);
+  --brand-strong: oklch(0.12 0 0);
+  --brand-soft: oklch(0.96 0 0);
+  --brand-foreground: oklch(1 0 0);
 
-  /* Semantic — yeşil ve kırmızı */
+  /* Semantic — sadece yeşil ve kırmızı */
   --positive: oklch(0.55 0.14 160);
   --positive-soft: oklch(0.96 0.04 160);
   --negative: oklch(0.55 0.21 25);
   --negative-soft: oklch(0.96 0.04 25);
-
-  /* Warning sade, kırmızı tonu yok → kahverengi-amber */
   --warning: oklch(0.6 0.13 70);
   --warning-soft: oklch(0.96 0.05 70);
 
-  /* Sidebar — SAF koyu gri (mavi tonu yok) */
+  /* Sidebar — saf koyu gri */
   --sidebar-bg: oklch(0.18 0 0);
   --sidebar-bg-2: oklch(0.22 0 0);
   --sidebar-text: oklch(0.72 0 0);
   --sidebar-text-strong: oklch(0.98 0 0);
-  --sidebar-active: var(--brand);
+  --sidebar-active-bg: oklch(0.98 0 0 / 0.08);
+  --sidebar-active-bar: oklch(0.98 0 0);
+
+  /* HeroUI override — onların mavisi (--accent: oklch(0.62 0.195 253.83)) yerine SİYAH */
+  --accent: oklch(0.2 0 0);
+  --accent-foreground: oklch(1 0 0);
+  --focus: oklch(0.2 0 0);
+
+  /* HeroUI success/danger/warning'i de bizim semantic'lerle eşle */
+  --success: var(--positive);
+  --danger: var(--negative);
 }
 
 /* ============================================================
-   Dark tema — saf koyu gri, mavi tonu yok
+   DARK TEMA — saf koyu gri
    ============================================================ */
 .dark,
 [data-theme="dark"] {
@@ -82,9 +91,11 @@
   --text-muted: oklch(0.7 0 0);
   --text-soft: oklch(0.55 0 0);
 
-  --brand: oklch(0.7 0.2 270);
-  --brand-strong: oklch(0.75 0.2 270);
-  --brand-soft: oklch(0.28 0.08 270);
+  /* Brand = BEYAZ (dark mode'da). Buton arkaplanı parlasın. */
+  --brand: oklch(0.96 0 0);
+  --brand-strong: oklch(1 0 0);
+  --brand-soft: oklch(0.28 0 0);
+  --brand-foreground: oklch(0.15 0 0);
 
   --positive: oklch(0.7 0.14 160);
   --positive-soft: oklch(0.28 0.06 160);
@@ -95,6 +106,17 @@
 
   --sidebar-bg: oklch(0.12 0 0);
   --sidebar-bg-2: oklch(0.16 0 0);
+  --sidebar-text: oklch(0.7 0 0);
+  --sidebar-text-strong: oklch(0.98 0 0);
+  --sidebar-active-bg: oklch(0.98 0 0 / 0.1);
+  --sidebar-active-bar: oklch(0.98 0 0);
+
+  --accent: oklch(0.96 0 0);
+  --accent-foreground: oklch(0.15 0 0);
+  --focus: oklch(0.96 0 0);
+
+  --success: var(--positive);
+  --danger: var(--negative);
 }
 
 /* ============================================================
@@ -113,12 +135,12 @@ body {
 }
 
 ::selection {
-  background: var(--brand);
-  color: white;
+  background: var(--text);
+  color: var(--surface);
 }
 
 :focus-visible {
-  outline: 2px solid var(--brand);
+  outline: 2px solid var(--text);
   outline-offset: 2px;
   border-radius: 4px;
 }

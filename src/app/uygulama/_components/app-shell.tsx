@@ -58,8 +58,11 @@ export function AppShell({ user, children }: AppShellProps) {
         <div className="flex h-14 items-center gap-2 border-b border-white/5 px-5 text-base font-semibold tracking-tight" style={{ color: "var(--sidebar-text-strong)" }}>
           <span
             aria-hidden
-            className="grid size-7 place-items-center rounded-md text-white text-sm"
-            style={{ background: "var(--sidebar-active)" }}
+            className="grid size-7 place-items-center rounded-md text-sm"
+            style={{
+              background: "var(--sidebar-bg-2)",
+              color: "var(--sidebar-text-strong)",
+            }}
           >
             ₺
           </span>
@@ -100,7 +103,7 @@ export function AppShell({ user, children }: AppShellProps) {
                 <span
                   aria-hidden
                   className="grid size-7 place-items-center rounded-md text-white text-sm"
-                  style={{ background: "var(--sidebar-active)" }}
+                  style={{ background: "var(--sidebar-active-bar)" }}
                 >
                   ₺
                 </span>
@@ -200,9 +203,7 @@ function NavLink({
       onClick={onClick}
       className="relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors"
       style={{
-        background: active
-          ? "color-mix(in oklch, var(--brand) 22%, transparent)"
-          : "transparent",
+        background: active ? "var(--sidebar-active-bg)" : "transparent",
         color: active ? "var(--sidebar-text-strong)" : "var(--sidebar-text)",
         fontWeight: active ? 500 : 400,
       }}
@@ -211,7 +212,7 @@ function NavLink({
         <span
           aria-hidden
           className="absolute top-2 bottom-2 -left-3 w-[3px] rounded-r-full"
-          style={{ background: "var(--sidebar-active)" }}
+          style={{ background: "var(--sidebar-active-bar)" }}
         />
       )}
       <Icon size={16} />
@@ -225,8 +226,11 @@ function UserMenu({ user }: { user: AppShellProps["user"] }) {
     <div className="space-y-2">
       <div className="flex items-center gap-2 rounded-lg px-2 py-1.5">
         <div
-          className="grid size-8 place-items-center rounded-full text-xs font-semibold text-white"
-          style={{ background: "var(--sidebar-active)" }}
+          className="grid size-8 place-items-center rounded-full text-xs font-semibold"
+          style={{
+            background: "var(--sidebar-bg-2)",
+            color: "var(--sidebar-text-strong)",
+          }}
         >
           {initials(user.name)}
         </div>

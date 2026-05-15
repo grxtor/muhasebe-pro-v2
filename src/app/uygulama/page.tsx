@@ -217,7 +217,7 @@ function YaklasanKart({
         <Link
           href={href}
           className="inline-flex items-center gap-1 text-xs font-medium transition-colors hover:underline"
-          style={{ color: "var(--brand)" }}
+          style={{ color: "var(--text-muted)" }}
         >
           Tümünü gör <ArrowRight size={12} />
         </Link>
