@@ -1,36 +1,169 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Muhasebe Pro v2
 
-## Getting Started
+Çok kullanıcılı, modern web ve masaüstü muhasebe uygulaması.
+Next.js 16 + TypeScript + HeroUI v3 + Prisma + Auth.js v5.
 
-First, run the development server:
+> **Not:** Bu, eski Blazor sürümünün (`muhasebe-web`) yerine geçecek **tam yeniden yazımdır**. Eski sürüm `muhasebe-blazor-legacy` olarak arşivlenecek.
 
+---
+
+## Tech Stack
+
+| Katman | Seçim |
+|---|---|
+| Framework | Next.js 16 (App Router, Server Actions, Turbopack) |
+| Dil | TypeScript strict |
+| Paket yöneticisi | pnpm 10 |
+| UI | HeroUI v3 + Tailwind CSS v4 |
+| Stil tokenları | OKLCH renkler, custom design system |
+| İkon | lucide-react |
+| Tema | next-themes (light/dark/system) |
+| DB | PostgreSQL 16 |
+| ORM | Prisma 6 |
+| Auth | Auth.js v5 — Email/şifre + Google OAuth, JWT session |
+| Form | Server Actions + Zod validation |
+| Bildirim | Sonner |
+| Grafik | Recharts |
+| Tarih | date-fns + Intl |
+| i18n | next-intl (şimdilik TR-only) |
+| PWA | Manifest + ikonlar (hem web hem Windows kurulabilir) |
+| Deploy | Docker multi-stage + Dokploy uyumlu |
+
+---
+
+## Yerel Çalıştırma
+
+### 1. Bağımlılıklar
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Ortam değişkenleri
+`.env.example`'ı kopyala ve doldur:
+```bash
+cp .env.example .env.local
+openssl rand -base64 32  # AUTH_SECRET için kullan
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Gerekli minimum:
+- `DATABASE_URL` — PostgreSQL bağlantısı
+- `AUTH_SECRET` — herhangi bir 32+ karakter rastgele string
+- `AUTH_TRUST_HOST=true` — Dokploy/Traefik arkasında çalışırken
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — opsiyonel, Google girişi için
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 3. Veritabanı
+```bash
+pnpm db:push    # geliştirme için (migration olmadan şema senkronize)
+# veya
+pnpm db:migrate # production yolu (migration dosyaları üretir)
+```
 
-## Learn More
+### 4. Dev sunucusu
+```bash
+pnpm dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+`http://localhost:3000` → `/kayit` → kayıt ol → `/uygulama` ile başla.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Komutlar
 
-## Deploy on Vercel
+| Komut | Açıklama |
+|---|---|
+| `pnpm dev` | Turbopack dev sunucu |
+| `pnpm build` | Production build (Prisma generate dahil) |
+| `pnpm start` | Production sunucu |
+| `pnpm lint` | ESLint |
+| `pnpm db:generate` | Prisma client üret |
+| `pnpm db:push` | Schema'yı DB'ye uygula (migration yok) |
+| `pnpm db:migrate` | Yeni migration üret + uygula |
+| `pnpm db:studio` | Prisma Studio (DB tarayıcısı) |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Docker
+
+### Local test
+```bash
+docker compose up -d
+# http://localhost:3000
+```
+
+### Dokploy
+1. **Application** olarak repoyu bağla
+2. Build Type: `Dockerfile`
+3. Environment Variables:
+   - `DATABASE_URL`
+   - `AUTH_SECRET`
+   - `AUTH_TRUST_HOST=true`
+   - `AUTH_URL=https://senin-domain.com`
+   - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`
+4. Domains: `muhasebe.oceanyazilim.com` → port 3000
+5. Healthcheck: `/api/health`
+
+---
+
+## Proje Yapısı
+
+```
+src/
+├── app/
+│   ├── (auth)/              # Auth route grubu
+│   │   ├── giris/
+│   │   ├── kayit/
+│   │   └── layout.tsx
+│   ├── api/
+│   │   ├── auth/[...nextauth]/route.ts
+│   │   └── health/route.ts
+│   ├── uygulama/            # Korunan alan
+│   │   ├── _components/app-shell.tsx
+│   │   ├── layout.tsx       # auth() kontrolü + AppShell
+│   │   └── page.tsx
+│   ├── globals.css          # Tailwind + HeroUI + tokens
+│   ├── layout.tsx           # Root layout (TR, fonts, Providers)
+│   ├── page.tsx             # Landing
+│   └── providers.tsx        # next-themes + Sonner
+├── components/
+│   └── ui/
+│       └── link-button.tsx
+├── lib/
+│   ├── db.ts                # Prisma singleton
+│   ├── enums.ts             # Domain enums + TR etiketler
+│   └── format.ts            # Para/tarih/vade biçimlendirme
+├── i18n/
+│   └── request.ts           # next-intl config
+├── auth.config.ts           # Edge-safe Auth config
+├── auth.ts                  # Tam Auth config (Prisma + bcrypt)
+└── proxy.ts                 # Auth middleware (Next.js 16 proxy)
+
+prisma/
+└── schema.prisma            # DB şeması
+
+messages/
+└── tr.json                  # i18n metinleri
+
+public/
+├── icons/icon.svg
+└── manifest.webmanifest     # PWA
+```
+
+---
+
+## Sprint Yol Haritası
+
+- [x] **Sprint 1 — Foundation** (Hafta 1)
+  - Next.js + HeroUI + Auth + Prisma + i18n + PWA + app shell + deploy
+- [ ] **Sprint 2 — Core CRUD** (Hafta 2)
+  - Profiller, Faturalar (KDV otomatik), Alacaklar/Borçlar, Hareketler
+- [ ] **Sprint 3 — Dashboard + Polish** (Hafta 3)
+  - KPI'lar, grafikler, komut paleti, profil 360, bulk action, mobil
+- [ ] **Sprint 4 — Yeni özellikler + Launch** (Hafta 4)
+  - PDF fatura, Excel export, dekont upload, vergi takvimi, çoklu para birimi
+  - DNS switch, eski Blazor sürümü arşivlenir
+
+---
+
+## Lisans
+
+© Ocean Yazılım — Tüm hakları saklıdır.
