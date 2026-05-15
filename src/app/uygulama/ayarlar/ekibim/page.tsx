@@ -13,7 +13,7 @@ export default async function EkibimPage() {
     redirect("/uygulama/ayarlar");
   }
 
-  const [members, org, son30GunAudit] = await Promise.all([
+  const [members, org, son30GunAudit, invitations] = await Promise.all([
     db.organizationMember.findMany({
       where: { organizationId: ctx.orgId },
       orderBy: [{ role: "asc" }, { joinedAt: "asc" }],
@@ -33,7 +33,6 @@ export default async function EkibimPage() {
       where: { id: ctx.orgId },
       select: { ad: true },
     }),
-    // Üye bazında son 30 gün aktivite sayısı
     db.auditLog.groupBy({
       by: ["userId"],
       where: {
@@ -42,12 +41,23 @@ export default async function EkibimPage() {
       },
       _count: { id: true },
     }),
+    db.invitation.findMany({
+      where: {
+        organizationId: ctx.orgId,
+        acceptedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
   ]);
 
   const aktiviteMap = new Map<string, number>();
   for (const row of son30GunAudit) {
     aktiviteMap.set(row.userId, row._count.id);
   }
+
+  // Davet URL'leri için origin türet
+  const baseUrl = process.env.AUTH_URL?.replace(/\/$/, "") ?? "";
 
   return (
     <EkibimList
@@ -62,6 +72,15 @@ export default async function EkibimPage() {
         role: m.role,
         joinedAt: m.joinedAt.toISOString(),
         sonAyAktivite: aktiviteMap.get(m.userId) ?? 0,
+      }))}
+      invitations={invitations.map((i) => ({
+        id: i.id,
+        email: i.email,
+        role: i.role,
+        token: i.token,
+        url: baseUrl ? `${baseUrl}/davet/${i.token}` : `/davet/${i.token}`,
+        expiresAt: i.expiresAt.toISOString(),
+        createdAt: i.createdAt.toISOString(),
       }))}
     />
   );

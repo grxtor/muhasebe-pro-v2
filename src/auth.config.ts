@@ -21,11 +21,16 @@ export default {
       const publicPaths = ["/giris", "/kayit"];
       const isOnPublic = publicPaths.some((p) => nextUrl.pathname.startsWith(p));
       const isOnRoot = nextUrl.pathname === "/";
+      // Davet linki — herkes açabilir (giriş yapmış olsa bile)
+      const isOnDavet = nextUrl.pathname.startsWith("/davet/");
 
       // Korunmuş alanlar: /uygulama/*
       const isOnApp = nextUrl.pathname.startsWith("/uygulama");
 
       if (isOnApp) return isLoggedIn;
+
+      // Davet sayfası her zaman erişilebilir
+      if (isOnDavet) return true;
 
       // Giriş yapmışken /giris veya /kayit'a giderse → /uygulama'ya yönlendir
       if (isLoggedIn && (isOnPublic || isOnRoot)) {

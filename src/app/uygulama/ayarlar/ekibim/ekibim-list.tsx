@@ -10,6 +10,11 @@ import {
   Mail,
   Shield,
   History,
+  Link as LinkIcon,
+  Copy,
+  Check,
+  Clock,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { SectionCard } from "../profil-form";
@@ -17,8 +22,14 @@ import { DataModal } from "@/components/ui/data-modal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Field, Label, Select, TextInput } from "@/components/ui/form-field";
 import { OrgRole } from "@/lib/org";
-import { addMember, removeMember, resetMemberPassword, updateMemberRole } from "./actions";
-import { formatTarihUzun } from "@/lib/format";
+import {
+  addMember,
+  cancelInvitation,
+  createInvitation,
+  removeMember,
+  resetMemberPassword,
+  updateMemberRole,
+} from "./actions";
 
 export interface MemberRow {
   id: string;
@@ -30,11 +41,22 @@ export interface MemberRow {
   sonAyAktivite: number;
 }
 
+export interface InvitationRow {
+  id: string;
+  email: string;
+  role: string;
+  token: string;
+  url: string;
+  expiresAt: string;
+  createdAt: string;
+}
+
 interface Props {
   orgAd: string;
   currentUserId: string;
   currentRole: string;
   members: MemberRow[];
+  invitations: InvitationRow[];
 }
 
 const ROLE_LABEL: Record<string, string> = {
@@ -68,14 +90,26 @@ export function EkibimList({
   currentUserId,
   currentRole,
   members,
+  invitations,
 }: Props) {
   const router = useRouter();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<MemberRow | null>(null);
   const [removing, setRemoving] = useState(false);
   const [resetTarget, setResetTarget] = useState<MemberRow | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<InvitationRow | null>(null);
+  const [canceling, setCanceling] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const isOwner = currentRole === OrgRole.Owner;
+
+  function copyToClipboard(text: string, id: string) {
+    void navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    toast.success("Davet linki kopyalandı");
+    setTimeout(() => setCopiedId((p) => (p === id ? null : p)), 2000);
+  }
 
   return (
     <>
@@ -88,14 +122,23 @@ export function EkibimList({
         }`}
       >
         {isOwner && (
-          <div className="mb-4 flex justify-end">
+          <div className="mb-4 flex flex-wrap justify-end gap-2">
             <Button
-              variant="primary"
+              variant="ghost"
               size="md"
               onPress={() => setDialogOpen(true)}
             >
               <span className="inline-flex items-center gap-1.5">
-                <UserPlus size={15} /> Yeni Üye Ekle
+                <UserPlus size={15} /> Direkt Üye Ekle
+              </span>
+            </Button>
+            <Button
+              variant="primary"
+              size="md"
+              onPress={() => setInviteOpen(true)}
+            >
+              <span className="inline-flex items-center gap-1.5">
+                <LinkIcon size={15} /> Davet Linki Oluştur
               </span>
             </Button>
           </div>
@@ -225,6 +268,99 @@ export function EkibimList({
         </ul>
       </SectionCard>
 
+      {/* Bekleyen davetler */}
+      {isOwner && invitations.length > 0 && (
+        <SectionCard
+          title="Bekleyen Davetler"
+          description={`${invitations.length} davet bekliyor. Linki kopyalayıp paylaşın — kabul edilince üye otomatik eklenir.`}
+        >
+          <ul className="space-y-2">
+            {invitations.map((inv) => {
+              const badge =
+                ROLE_BADGE[inv.role] ?? ROLE_BADGE.Goruntuleyici;
+              const exp = new Date(inv.expiresAt);
+              const days = Math.max(
+                0,
+                Math.ceil((exp.getTime() - Date.now()) / 86_400_000),
+              );
+              const isCopied = copiedId === inv.id;
+              return (
+                <li
+                  key={inv.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3"
+                  style={{
+                    background: "var(--surface)",
+                    borderColor: "var(--border)",
+                  }}
+                >
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <div
+                      className="grid size-10 place-items-center rounded-full"
+                      style={{
+                        background: "var(--surface-muted)",
+                        color: "var(--text-muted)",
+                      }}
+                    >
+                      <Mail size={16} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-medium">
+                        {inv.email}
+                      </div>
+                      <div
+                        className="mt-0.5 flex items-center gap-2 text-[11px]"
+                        style={{ color: "var(--text-soft)" }}
+                      >
+                        <Clock size={10} />
+                        {days > 0
+                          ? `${days} gün geçerli`
+                          : "bugün sona eriyor"}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
+                      style={{ background: badge.bg, color: badge.color }}
+                    >
+                      <Shield size={11} />
+                      {ROLE_LABEL[inv.role] ?? inv.role}
+                    </span>
+                    <button
+                      onClick={() => copyToClipboard(inv.url, inv.id)}
+                      className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors hover:bg-black/5 dark:hover:bg-white/10"
+                      style={{
+                        borderColor: "var(--border-strong)",
+                        color: isCopied ? "var(--positive)" : "var(--text)",
+                      }}
+                      title={inv.url}
+                    >
+                      {isCopied ? (
+                        <>
+                          <Check size={12} /> Kopyalandı
+                        </>
+                      ) : (
+                        <>
+                          <Copy size={12} /> Linki Kopyala
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => setCancelTarget(inv)}
+                      className="rounded-md p-1.5 transition-colors hover:bg-black/5 dark:hover:bg-white/10"
+                      style={{ color: "var(--negative)" }}
+                      title="Daveti iptal et"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </SectionCard>
+      )}
+
       <AddMemberDialog
         isOpen={dialogOpen}
         onClose={() => setDialogOpen(false)}
@@ -232,6 +368,12 @@ export function EkibimList({
           setDialogOpen(false);
           router.refresh();
         }}
+      />
+
+      <InviteDialog
+        isOpen={inviteOpen}
+        onClose={() => setInviteOpen(false)}
+        onCreated={() => router.refresh()}
       />
 
       <ResetPasswordDialog
@@ -255,6 +397,27 @@ export function EkibimList({
           if (r.ok) {
             toast.success("Üye çıkarıldı");
             setRemoveTarget(null);
+            router.refresh();
+          } else toast.error(r.error);
+        }}
+      />
+
+      <ConfirmDialog
+        isOpen={cancelTarget !== null}
+        title={`"${cancelTarget?.email}" daveti iptal edilsin mi?`}
+        description="Davet linki çalışmaz hale gelecek. Tekrar göndermek için yeni davet oluşturabilirsiniz."
+        confirmText="İptal Et"
+        variant="danger"
+        isLoading={canceling}
+        onCancel={() => setCancelTarget(null)}
+        onConfirm={async () => {
+          if (!cancelTarget) return;
+          setCanceling(true);
+          const r = await cancelInvitation(cancelTarget.id);
+          setCanceling(false);
+          if (r.ok) {
+            toast.success("Davet iptal edildi");
+            setCancelTarget(null);
             router.refresh();
           } else toast.error(r.error);
         }}
@@ -374,6 +537,185 @@ function AddMemberDialog({
           </Select>
         </Field>
       </form>
+    </DataModal>
+  );
+}
+
+function InviteDialog({
+  isOpen,
+  onClose,
+  onCreated,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const [pending, start] = useTransition();
+  const [createdUrl, setCreatedUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  function close() {
+    setCreatedUrl(null);
+    setCopied(false);
+    onClose();
+  }
+
+  async function submit(formData: FormData) {
+    start(async () => {
+      const r = await createInvitation(formData);
+      if (r.ok && r.data) {
+        setCreatedUrl(r.data.url);
+        onCreated();
+      } else if (!r.ok) {
+        toast.error(r.error);
+      }
+    });
+  }
+
+  function copyLink() {
+    if (!createdUrl) return;
+    void navigator.clipboard.writeText(createdUrl);
+    setCopied(true);
+    toast.success("Link kopyalandı");
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  const formKey = `invite-${isOpen}`;
+
+  return (
+    <DataModal
+      isOpen={isOpen}
+      onClose={close}
+      title={createdUrl ? "Davet Linki Hazır" : "Davet Linki Oluştur"}
+      description={
+        createdUrl
+          ? "Aşağıdaki linki kopyalayıp kullanıcıya (WhatsApp, e-posta, vs.) paylaşın."
+          : "Kullanıcının e-postasını girin — onlar linkten kayıt olup şirketinize katılır."
+      }
+      size="md"
+      footer={
+        createdUrl ? (
+          <>
+            <Button variant="ghost" size="md" onPress={close}>
+              Kapat
+            </Button>
+            <Button variant="primary" size="md" onPress={copyLink}>
+              <span className="inline-flex items-center gap-1.5">
+                {copied ? <Check size={14} /> : <Copy size={14} />}
+                {copied ? "Kopyalandı" : "Linki Kopyala"}
+              </span>
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button
+              variant="ghost"
+              size="md"
+              onPress={close}
+              isDisabled={pending}
+            >
+              İptal
+            </Button>
+            <Button
+              type="submit"
+              form={formKey}
+              variant="primary"
+              size="md"
+              isDisabled={pending}
+            >
+              {pending ? "Oluşturuluyor…" : "Davet Linki Oluştur"}
+            </Button>
+          </>
+        )
+      }
+    >
+      {createdUrl ? (
+        <div className="space-y-3">
+          <div
+            className="rounded-lg border p-3"
+            style={{
+              background: "var(--surface-muted)",
+              borderColor: "var(--border)",
+            }}
+          >
+            <div
+              className="mb-1 text-[10px] font-semibold uppercase tracking-wider"
+              style={{ color: "var(--text-soft)" }}
+            >
+              Davet linki (7 gün geçerli)
+            </div>
+            <code
+              className="block break-all text-xs"
+              style={{ color: "var(--text)" }}
+            >
+              {createdUrl}
+            </code>
+          </div>
+          <div
+            className="rounded-lg border p-3 text-xs"
+            style={{
+              borderColor: "var(--border)",
+              color: "var(--text-muted)",
+            }}
+          >
+            💡 Kullanıcı bu linki açtığında:
+            <ul className="mt-1 list-inside list-disc space-y-0.5">
+              <li>Yeni kullanıcı ise: ad + şifre belirler, kayıt olur, şirkete katılır</li>
+              <li>Zaten hesabı varsa: giriş yapar, daveti tek tıkla kabul eder</li>
+            </ul>
+          </div>
+        </div>
+      ) : (
+        <form
+          id={formKey}
+          action={(fd) => void submit(fd)}
+          className="space-y-4"
+        >
+          <Field>
+            <Label htmlFor="invite-email" required>
+              E-posta
+            </Label>
+            <TextInput
+              id="invite-email"
+              name="email"
+              type="email"
+              required
+              placeholder="kullanici@firma.com"
+            />
+          </Field>
+          <Field>
+            <Label htmlFor="invite-role" required>
+              Rol
+            </Label>
+            <Select
+              id="invite-role"
+              name="role"
+              required
+              defaultValue={OrgRole.Muhasebeci}
+            >
+              <option value={OrgRole.Admin}>
+                Yönetici — kullanıcı yönetimi hariç tam yetki
+              </option>
+              <option value={OrgRole.Muhasebeci}>
+                Muhasebeci — CRUD yetkisi
+              </option>
+              <option value={OrgRole.Goruntuleyici}>
+                Görüntüleyici — sadece okuma
+              </option>
+            </Select>
+          </Field>
+          <div
+            className="rounded-md border p-2.5 text-xs"
+            style={{
+              borderColor: "var(--border)",
+              color: "var(--text-soft)",
+            }}
+          >
+            📧 E-posta otomatik gönderilmez — link oluşturduktan sonra
+            kopyalayıp kullanıcıya kendiniz iletmeniz gerekir.
+          </div>
+        </form>
+      )}
     </DataModal>
   );
 }
