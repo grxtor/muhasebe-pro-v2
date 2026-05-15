@@ -11,8 +11,9 @@ services:
       AUTH_SECRET: ${AUTH_SECRET}
       AUTH_TRUST_HOST: "true"
       AUTH_URL: ${AUTH_URL}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      UPLOAD_DIR: /app/uploads
+    volumes:
+      - app-uploads:/app/uploads
     depends_on:
       db:
         condition: service_healthy
@@ -37,3 +38,4 @@ services:
 
 volumes:
   db-data:
+  app-uploads:

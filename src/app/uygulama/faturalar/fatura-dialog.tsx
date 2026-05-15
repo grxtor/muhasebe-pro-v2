@@ -17,6 +17,7 @@ import {
   faturaDurumuEtiket,
 } from "@/lib/enums";
 import { createFatura, updateFatura } from "./actions";
+import { DekontList } from "./dekont-list";
 import { formatTutar } from "@/lib/format";
 import type { FaturaRow, CariRef } from "./fatura-list";
 
@@ -344,6 +345,22 @@ export function FaturaDialog({
 
         <input type="hidden" name="paraBirimi" value="TRY" />
       </form>
+
+      {/* Dekont upload — sadece kaydedilmiş (edit mode) faturalar için */}
+      {isEdit && fatura && (
+        <div className="mt-4">
+          <DekontList faturaId={fatura.id} />
+        </div>
+      )}
+      {!isEdit && (
+        <p
+          className="mt-3 text-xs"
+          style={{ color: "var(--text-soft)" }}
+        >
+          💡 Dekont (PDF, görsel) eklemek için önce faturayı kaydedin,
+          sonra üzerine tıklayıp düzenleme açın.
+        </p>
+      )}
     </DataModal>
   );
 }

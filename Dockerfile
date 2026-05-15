@@ -61,6 +61,11 @@ COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma/client ./node_modules/@prisma/client
 
+# Uploads dizini (Docker volume mount edilir)
+ENV UPLOAD_DIR=/app/uploads
+RUN mkdir -p /app/uploads && chown -R nextjs:nodejs /app/uploads
+VOLUME ["/app/uploads"]
+
 USER nextjs
 EXPOSE 3000
 

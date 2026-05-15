@@ -35,7 +35,7 @@ export default async function FaturalarPage({
       : {}),
   };
 
-  const [items, cariler, stats, sonrakiNo] = await Promise.all([
+  const [items, cariler, stats, sonrakiNo, dekontSayilari] = await Promise.all([
     db.fatura.findMany({
       where,
       orderBy: { tarih: "desc" },
@@ -48,7 +48,18 @@ export default async function FaturalarPage({
     }),
     computeStats(userId),
     nextFaturaNo(),
+    db.dekont.groupBy({
+      by: ["faturaId"],
+      where: { userId, faturaId: { not: null } },
+      _count: { id: true },
+    }),
   ]);
+
+  // Her faturanın dekont sayısı
+  const dekontMap = new Map<number, number>();
+  for (const row of dekontSayilari) {
+    if (row.faturaId != null) dekontMap.set(row.faturaId, row._count.id);
+  }
 
   const serialized = items.map((f) => ({
     id: f.id,
@@ -67,6 +78,7 @@ export default async function FaturalarPage({
     durum: f.durum,
     notlar: f.notlar,
     cari: f.cari!,
+    dekontSayisi: dekontMap.get(f.id) ?? 0,
   }));
 
   return (

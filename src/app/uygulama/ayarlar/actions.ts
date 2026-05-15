@@ -6,6 +6,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { getUserId } from "@/lib/auth-helpers";
 import { logAction } from "@/lib/audit";
+import { saveFile, deleteFile, FILE_LIMITS } from "@/lib/files";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -146,8 +147,12 @@ export async function updateSirketBilgisi(
   formData: FormData,
 ): Promise<ActionResult> {
   const userId = await getUserId();
-  const o = Object.fromEntries(formData.entries()) as Record<string, string>;
-  const parsed = sirketSchema.safeParse(o);
+  // Sadece text alanları al, File objelerini at
+  const textData: Record<string, string> = {};
+  for (const [k, v] of formData.entries()) {
+    if (typeof v === "string") textData[k] = v;
+  }
+  const parsed = sirketSchema.safeParse(textData);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Geçersiz" };
   }
@@ -169,6 +174,96 @@ export async function updateSirketBilgisi(
     entity: "Settings",
     entityId: "sirket",
     ozet: "Şirket bilgileri güncellendi",
+  });
+
+  revalidatePath("/uygulama/ayarlar/sirket");
+  return { ok: true };
+}
+
+/* ============================================================
+   LOGO UPLOAD
+   ============================================================ */
+
+export async function uploadLogo(
+  formData: FormData,
+): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  const userId = await getUserId();
+  const file = formData.get("logo");
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, error: "Dosya seçilmedi" };
+  }
+  try {
+    // Eski logoyu sil
+    const existing = await db.sirketBilgisi.findUnique({
+      where: { userId },
+      select: { logoUrl: true },
+    });
+    if (existing?.logoUrl?.startsWith("/api/files/")) {
+      const oldPath = existing.logoUrl.replace("/api/files/", "");
+      try {
+        await deleteFile(oldPath);
+      } catch {
+        /* sessiz */
+      }
+    }
+
+    const saved = await saveFile(
+      file,
+      "logolar",
+      userId,
+      FILE_LIMITS.logoMimes,
+    );
+
+    await db.sirketBilgisi.upsert({
+      where: { userId },
+      create: { userId, ulke: "Türkiye", logoUrl: saved.publicUrl },
+      update: { logoUrl: saved.publicUrl },
+    });
+
+    await logAction({
+      userId,
+      islem: "update",
+      entity: "Settings",
+      entityId: "logo",
+      ozet: `Logo yüklendi: ${saved.originalName}`,
+    });
+
+    revalidatePath("/uygulama/ayarlar/sirket");
+    return { ok: true, url: saved.publicUrl };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Yükleme başarısız",
+    };
+  }
+}
+
+export async function deleteLogo(): Promise<ActionResult> {
+  const userId = await getUserId();
+  const existing = await db.sirketBilgisi.findUnique({
+    where: { userId },
+    select: { logoUrl: true },
+  });
+  if (existing?.logoUrl?.startsWith("/api/files/")) {
+    const oldPath = existing.logoUrl.replace("/api/files/", "");
+    try {
+      await deleteFile(oldPath);
+    } catch {
+      /* sessiz */
+    }
+  }
+  await db.sirketBilgisi.upsert({
+    where: { userId },
+    create: { userId, ulke: "Türkiye", logoUrl: null },
+    update: { logoUrl: null },
+  });
+
+  await logAction({
+    userId,
+    islem: "delete",
+    entity: "Settings",
+    entityId: "logo",
+    ozet: "Logo silindi",
   });
 
   revalidatePath("/uygulama/ayarlar/sirket");

@@ -11,6 +11,7 @@ import {
   Receipt,
   ArrowUpRight,
   ArrowDownRight,
+  Paperclip,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header";
@@ -45,6 +46,7 @@ export interface FaturaRow {
   durum: string;
   notlar: string | null;
   cari: { kod: string; unvan: string };
+  dekontSayisi: number;
 }
 
 export interface CariRef {
@@ -252,7 +254,22 @@ export function FaturaList({ items, cariler, stats, sonrakiNo }: Props) {
                       }}
                     >
                       <td className="px-4 py-3 font-mono text-xs font-semibold">
-                        {f.faturaNo}
+                        <span className="inline-flex items-center gap-1">
+                          {f.faturaNo}
+                          {f.dekontSayisi > 0 && (
+                            <span
+                              className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-normal"
+                              style={{
+                                background: "var(--surface-muted)",
+                                color: "var(--text-muted)",
+                              }}
+                              title={`${f.dekontSayisi} ek dosya`}
+                            >
+                              <Paperclip size={10} />
+                              {f.dekontSayisi}
+                            </span>
+                          )}
+                        </span>
                       </td>
                       <td
                         className="px-4 py-3 tabular-nums"

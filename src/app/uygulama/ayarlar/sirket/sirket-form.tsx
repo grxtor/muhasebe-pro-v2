@@ -156,22 +156,8 @@ export function SirketForm({ initial }: { initial: Initial }) {
         </div>
       </SectionCard>
 
-      <SectionCard
-        title="Logo"
-        description="Faturalarda sol üstte görünür"
-      >
-        <Field>
-          <Label htmlFor="logoUrl" hint="opsiyonel">
-            Logo URL'i
-          </Label>
-          <TextInput
-            id="logoUrl"
-            name="logoUrl"
-            defaultValue={initial.logoUrl}
-            placeholder="https://cdn.firma.com/logo.png"
-          />
-        </Field>
-      </SectionCard>
+      {/* Logo bölümü ayrı sectionda — kendi yüklemesi var, ana form'a dahil değil */}
+      <input type="hidden" name="logoUrl" value={initial.logoUrl} />
 
       <div className="flex justify-end">
         <Button type="submit" variant="primary" size="md" isDisabled={pending}>
