@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { getUserId } from "@/lib/auth-helpers";
+import { getOrgContext } from "@/lib/auth-helpers";
+import { logAction } from "@/lib/audit";
 import { odemeNotuSchema } from "@/lib/schemas/odeme-notu";
 import { OdemeDurumu, OdemeYonu, HareketTipi } from "@/lib/enums";
 
@@ -19,21 +20,32 @@ function fdToObject(formData: FormData): Record<string, unknown> {
 export async function createOdemeNotu(
   formData: FormData,
 ): Promise<ActionResult> {
-  const userId = await getUserId();
+  const ctx = await getOrgContext();
   const parsed = odemeNotuSchema.safeParse(fdToObject(formData));
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Geçersiz" };
   }
 
-  // Cari userId kontrolü — başka kullanıcının cari'sine yazılamaz
   const cari = await db.cari.findFirst({
-    where: { id: parsed.data.cariId, userId },
+    where: { id: parsed.data.cariId, organizationId: ctx.orgId },
     select: { id: true },
   });
   if (!cari) return { ok: false, error: "Profil bulunamadı" };
 
   await db.odemeNotu.create({
-    data: { ...parsed.data, userId },
+    data: {
+      ...parsed.data,
+      userId: ctx.userId,
+      organizationId: ctx.orgId,
+    },
+  });
+
+  await logAction({
+    userId: ctx.userId,
+    organizationId: ctx.orgId,
+    islem: "create",
+    entity: "OdemeNotu",
+    ozet: `${parsed.data.yon === OdemeYonu.Alacak ? "Alacak" : "Borç"} eklendi: ${parsed.data.baslik}`,
   });
 
   revalidatePath("/uygulama/alacaklar");
@@ -46,21 +58,30 @@ export async function updateOdemeNotu(
   id: number,
   formData: FormData,
 ): Promise<ActionResult> {
-  const userId = await getUserId();
+  const ctx = await getOrgContext();
   const parsed = odemeNotuSchema.safeParse(fdToObject(formData));
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Geçersiz" };
   }
 
   const existing = await db.odemeNotu.findFirst({
-    where: { id, userId },
-    select: { id: true },
+    where: { id, organizationId: ctx.orgId },
+    select: { id: true, baslik: true },
   });
   if (!existing) return { ok: false, error: "Kayıt bulunamadı" };
 
   await db.odemeNotu.update({
     where: { id },
     data: parsed.data,
+  });
+
+  await logAction({
+    userId: ctx.userId,
+    organizationId: ctx.orgId,
+    islem: "update",
+    entity: "OdemeNotu",
+    entityId: id,
+    ozet: `Güncellendi: ${parsed.data.baslik}`,
   });
 
   revalidatePath("/uygulama/alacaklar");
@@ -70,32 +91,36 @@ export async function updateOdemeNotu(
 }
 
 export async function deleteOdemeNotu(id: number): Promise<ActionResult> {
-  const userId = await getUserId();
+  const ctx = await getOrgContext();
   const existing = await db.odemeNotu.findFirst({
-    where: { id, userId },
-    select: { id: true },
+    where: { id, organizationId: ctx.orgId },
+    select: { id: true, baslik: true },
   });
   if (!existing) return { ok: false, error: "Kayıt bulunamadı" };
   await db.odemeNotu.delete({ where: { id } });
+
+  await logAction({
+    userId: ctx.userId,
+    organizationId: ctx.orgId,
+    islem: "delete",
+    entity: "OdemeNotu",
+    entityId: id,
+    ozet: `Silindi: ${existing.baslik}`,
+  });
+
   revalidatePath("/uygulama/alacaklar");
   revalidatePath("/uygulama/borclar");
   revalidatePath("/uygulama");
   return { ok: true };
 }
 
-/**
- * Bir alacak/borç notunu "ödendi" olarak işaretler ve otomatik
- * bir Hareket kaydı oluşturur.
- *
- * @param odenenTutar — null/undefined ise tam tahsilat (kalan tutar kadar)
- */
 export async function tahsilEtVeyaOde(
   id: number,
   odenenTutar?: number,
 ): Promise<ActionResult> {
-  const userId = await getUserId();
+  const ctx = await getOrgContext();
   const notu = await db.odemeNotu.findFirst({
-    where: { id, userId },
+    where: { id, organizationId: ctx.orgId },
   });
   if (!notu) return { ok: false, error: "Kayıt bulunamadı" };
 
@@ -123,7 +148,8 @@ export async function tahsilEtVeyaOde(
     }),
     db.hareket.create({
       data: {
-        userId,
+        userId: ctx.userId,
+        organizationId: ctx.orgId,
         cariId: notu.cariId,
         tarih: new Date(),
         tip:
@@ -138,6 +164,17 @@ export async function tahsilEtVeyaOde(
       },
     }),
   ]);
+
+  await logAction({
+    userId: ctx.userId,
+    organizationId: ctx.orgId,
+    islem: notu.yon === OdemeYonu.Alacak ? "tahsil" : "ode",
+    entity: "OdemeNotu",
+    entityId: id,
+    ozet: `${notu.baslik}: ${eklenecek.toFixed(2)} ${notu.paraBirimi} ${
+      notu.yon === OdemeYonu.Alacak ? "tahsil edildi" : "ödendi"
+    }`,
+  });
 
   revalidatePath("/uygulama/alacaklar");
   revalidatePath("/uygulama/borclar");

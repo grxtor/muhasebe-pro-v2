@@ -1,15 +1,14 @@
 import { db } from "./db";
-import { getUserId } from "./auth-helpers";
+import { getOrgId } from "./auth-helpers";
 import { readModuleFlags, type ModuleKey } from "./modules";
 
 /**
- * Bir modülün aktif olup olmadığını döner. Sayfanın en üstünde
- * çağrılır; false dönüyorsa sayfa "modül kapalı" bilgisi gösterir.
+ * Aktif organizasyonda bir modülün açık olup olmadığını döner.
  */
 export async function isModuleActive(key: ModuleKey): Promise<boolean> {
-  const userId = await getUserId();
-  const s = await db.userSettings.findUnique({
-    where: { userId },
+  const orgId = await getOrgId();
+  const org = await db.organization.findUnique({
+    where: { id: orgId },
     select: {
       modulFaturalar: true,
       modulHareketler: true,
@@ -19,6 +18,6 @@ export async function isModuleActive(key: ModuleKey): Promise<boolean> {
       modulEtiketler: true,
     },
   });
-  const flags = readModuleFlags(s);
+  const flags = readModuleFlags(org);
   return flags[key];
 }

@@ -112,12 +112,12 @@ function buildNavGroups(moduller: ModuleFlags): NavGroup[] {
   ];
 }
 
-export function AppShell({ user, moduller, children }: AppShellProps) {
+export function AppShell({ user, moduller, org, children }: AppShellProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { resolvedTheme, toggleTheme, mounted } = useTheme();
 
-  const navGroups = buildNavGroups(moduller);
+  const navGroups = buildNavGroups(moduller, org.role);
 
   function isActive(href: string, exact?: boolean) {
     if (exact) return pathname === href;

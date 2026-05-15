@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { getUserId } from "@/lib/auth-helpers";
+import { getOrgContext } from "@/lib/auth-helpers";
 import { logAction } from "@/lib/audit";
 import { StokHareketTipi } from "@/lib/enums";
 
@@ -42,13 +42,13 @@ function parseFD(formData: FormData) {
 }
 
 export async function nextUrunKodu(): Promise<string> {
-  const userId = await getUserId();
-  const count = await db.urun.count({ where: { userId } });
+  const { orgId } = await getOrgContext();
+  const count = await db.urun.count({ where: { organizationId: orgId } });
   return `URN-${String(count + 1).padStart(4, "0")}`;
 }
 
 export async function createUrun(formData: FormData): Promise<ActionResult> {
-  const userId = await getUserId();
+  const ctx = await getOrgContext();
   const parsed = parseFD(formData);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Geçersiz" };
@@ -56,14 +56,15 @@ export async function createUrun(formData: FormData): Promise<ActionResult> {
   const data = parsed.data;
 
   const exists = await db.urun.findFirst({
-    where: { userId, kod: data.kod },
+    where: { organizationId: ctx.orgId, kod: data.kod },
     select: { id: true },
   });
   if (exists) return { ok: false, error: `"${data.kod}" zaten kayıtlı` };
 
   const u = await db.urun.create({
     data: {
-      userId,
+      userId: ctx.userId,
+      organizationId: ctx.orgId,
       kod: data.kod,
       ad: data.ad,
       aciklama: data.aciklama || null,
@@ -81,7 +82,8 @@ export async function createUrun(formData: FormData): Promise<ActionResult> {
   });
 
   await logAction({
-    userId,
+    userId: ctx.userId,
+    organizationId: ctx.orgId,
     islem: "create",
     entity: "Urun",
     entityId: u.id,
@@ -96,7 +98,7 @@ export async function updateUrun(
   id: number,
   formData: FormData,
 ): Promise<ActionResult> {
-  const userId = await getUserId();
+  const ctx = await getOrgContext();
   const parsed = parseFD(formData);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Geçersiz" };
@@ -104,17 +106,17 @@ export async function updateUrun(
   const data = parsed.data;
 
   const existing = await db.urun.findFirst({
-    where: { id, userId },
+    where: { id, organizationId: ctx.orgId },
     select: { id: true, kod: true },
   });
   if (!existing) return { ok: false, error: "Ürün bulunamadı" };
 
   if (existing.kod !== data.kod) {
     const dupe = await db.urun.findFirst({
-      where: { userId, kod: data.kod, NOT: { id } },
+      where: { organizationId: ctx.orgId, kod: data.kod, NOT: { id } },
       select: { id: true },
     });
-    if (dupe) return { ok: false, error: `"${data.kod}" başka üründe kullanılıyor` };
+    if (dupe) return { ok: false, error: `"${data.kod}" başka üründe var` };
   }
 
   await db.urun.update({
@@ -132,16 +134,16 @@ export async function updateUrun(
       kategori: data.kategori || null,
       barkod: data.barkod || null,
       aktif: data.aktif,
-      // Stok değeri burada güncellenmez — sadece stok hareketleri ile
     },
   });
 
   await logAction({
-    userId,
+    userId: ctx.userId,
+    organizationId: ctx.orgId,
     islem: "update",
     entity: "Urun",
     entityId: id,
-    ozet: `Ürün güncellendi: ${data.ad}`,
+    ozet: `Güncellendi: ${data.ad}`,
   });
 
   revalidatePath("/uygulama/urunler");
@@ -149,9 +151,9 @@ export async function updateUrun(
 }
 
 export async function deleteUrun(id: number): Promise<ActionResult> {
-  const userId = await getUserId();
+  const ctx = await getOrgContext();
   const existing = await db.urun.findFirst({
-    where: { id, userId },
+    where: { id, organizationId: ctx.orgId },
     select: { ad: true, kod: true },
   });
   if (!existing) return { ok: false, error: "Ürün bulunamadı" };
@@ -159,11 +161,12 @@ export async function deleteUrun(id: number): Promise<ActionResult> {
   await db.urun.delete({ where: { id } });
 
   await logAction({
-    userId,
+    userId: ctx.userId,
+    organizationId: ctx.orgId,
     islem: "delete",
     entity: "Urun",
     entityId: id,
-    ozet: `Ürün silindi: ${existing.ad}`,
+    ozet: `Silindi: ${existing.ad}`,
   });
 
   revalidatePath("/uygulama/urunler");
@@ -190,7 +193,7 @@ export async function createStokHareketi(
   urunId: number,
   formData: FormData,
 ): Promise<ActionResult> {
-  const userId = await getUserId();
+  const ctx = await getOrgContext();
   const parsed = hareketSchema.safeParse({
     tip: formData.get("tip"),
     miktar: formData.get("miktar"),
@@ -203,7 +206,7 @@ export async function createStokHareketi(
   }
 
   const urun = await db.urun.findFirst({
-    where: { id: urunId, userId },
+    where: { id: urunId, organizationId: ctx.orgId },
     select: { id: true, ad: true, stok: true },
   });
   if (!urun) return { ok: false, error: "Ürün bulunamadı" };
@@ -214,7 +217,7 @@ export async function createStokHareketi(
   let sonraki: number;
   if (parsed.data.tip === StokHareketTipi.Giris) sonraki = onceki + m;
   else if (parsed.data.tip === StokHareketTipi.Cikis) sonraki = onceki - m;
-  else sonraki = m; // Düzeltme → mutlak değer
+  else sonraki = m;
 
   if (sonraki < 0) {
     return {
@@ -235,7 +238,8 @@ export async function createStokHareketi(
     }),
     db.stokHareketi.create({
       data: {
-        userId,
+        userId: ctx.userId,
+        organizationId: ctx.orgId,
         urunId,
         tip: parsed.data.tip,
         miktar: parsed.data.miktar,
@@ -251,7 +255,8 @@ export async function createStokHareketi(
   ]);
 
   await logAction({
-    userId,
+    userId: ctx.userId,
+    organizationId: ctx.orgId,
     islem: parsed.data.tip === StokHareketTipi.Cikis ? "delete" : "create",
     entity: "Urun",
     entityId: urunId,
@@ -259,6 +264,5 @@ export async function createStokHareketi(
   });
 
   revalidatePath("/uygulama/urunler");
-  revalidatePath(`/uygulama/urunler/${urunId}`);
   return { ok: true };
 }

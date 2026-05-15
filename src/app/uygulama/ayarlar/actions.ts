@@ -4,14 +4,15 @@ import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { getUserId } from "@/lib/auth-helpers";
+import { getUserId, getOrgContext, requireRole } from "@/lib/auth-helpers";
 import { logAction } from "@/lib/audit";
 import { saveFile, deleteFile, FILE_LIMITS } from "@/lib/files";
+import { OrgRole } from "@/lib/org";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
 /* ============================================================
-   PROFİL
+   PROFİL (kullanıcı bazlı — Org değil)
    ============================================================ */
 
 const profilSchema = z.object({
@@ -31,7 +32,6 @@ export async function updateUserProfil(
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Geçersiz" };
   }
 
-  // Email değiştiyse benzersiz olmalı
   const current = await db.user.findUnique({
     where: { id: userId },
     select: { email: true },
@@ -116,10 +116,11 @@ export async function updatePassword(
 }
 
 /* ============================================================
-   ŞİRKET BİLGİLERİ
+   ŞİRKET BİLGİLERİ (Organization'a yazılır — Owner/Admin only)
    ============================================================ */
 
 const sirketSchema = z.object({
+  ad: z.string().min(1).max(200).optional().or(z.literal("")),
   sirketAdi: z.string().max(200).optional().or(z.literal("")),
   vergiNo: z.string().max(50).optional().or(z.literal("")),
   vergiDairesi: z.string().max(100).optional().or(z.literal("")),
@@ -132,7 +133,6 @@ const sirketSchema = z.object({
   website: z.string().max(200).optional().or(z.literal("")),
   iban: z.string().max(50).optional().or(z.literal("")),
   bankaAdi: z.string().max(100).optional().or(z.literal("")),
-  logoUrl: z.string().max(500).optional().or(z.literal("")),
 });
 
 function nullify<T extends Record<string, string | undefined>>(obj: T) {
@@ -146,8 +146,7 @@ function nullify<T extends Record<string, string | undefined>>(obj: T) {
 export async function updateSirketBilgisi(
   formData: FormData,
 ): Promise<ActionResult> {
-  const userId = await getUserId();
-  // Sadece text alanları al, File objelerini at
+  const ctx = await requireRole(OrgRole.Admin);
   const textData: Record<string, string> = {};
   for (const [k, v] of formData.entries()) {
     if (typeof v === "string") textData[k] = v;
@@ -158,21 +157,26 @@ export async function updateSirketBilgisi(
   }
   const data = nullify(parsed.data);
 
-  await db.sirketBilgisi.upsert({
-    where: { userId },
-    create: {
-      userId,
-      ulke: "Türkiye",
-      ...data,
-    },
-    update: data,
+  // 'ad' alanı verildiyse org adını da güncelle
+  const updateData: Record<string, string | null> = { ...data };
+  delete updateData.ad;
+  if (parsed.data.ad && parsed.data.ad.length > 0) {
+    updateData.ad = parsed.data.ad;
+  }
+  // ulke null gelmesin
+  if (!updateData.ulke) updateData.ulke = "Türkiye";
+
+  await db.organization.update({
+    where: { id: ctx.orgId },
+    data: updateData,
   });
 
   await logAction({
-    userId,
+    userId: ctx.userId,
+    organizationId: ctx.orgId,
     islem: "update",
-    entity: "Settings",
-    entityId: "sirket",
+    entity: "Organization",
+    entityId: ctx.orgId,
     ozet: "Şirket bilgileri güncellendi",
   });
 
@@ -187,15 +191,14 @@ export async function updateSirketBilgisi(
 export async function uploadLogo(
   formData: FormData,
 ): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
-  const userId = await getUserId();
+  const ctx = await requireRole(OrgRole.Admin);
   const file = formData.get("logo");
   if (!(file instanceof File) || file.size === 0) {
     return { ok: false, error: "Dosya seçilmedi" };
   }
   try {
-    // Eski logoyu sil
-    const existing = await db.sirketBilgisi.findUnique({
-      where: { userId },
+    const existing = await db.organization.findUnique({
+      where: { id: ctx.orgId },
       select: { logoUrl: true },
     });
     if (existing?.logoUrl?.startsWith("/api/files/")) {
@@ -207,23 +210,24 @@ export async function uploadLogo(
       }
     }
 
+    // Logo'yu org bazlı klasöre kaydet (userId değil orgId)
     const saved = await saveFile(
       file,
       "logolar",
-      userId,
+      ctx.orgId,
       FILE_LIMITS.logoMimes,
     );
 
-    await db.sirketBilgisi.upsert({
-      where: { userId },
-      create: { userId, ulke: "Türkiye", logoUrl: saved.publicUrl },
-      update: { logoUrl: saved.publicUrl },
+    await db.organization.update({
+      where: { id: ctx.orgId },
+      data: { logoUrl: saved.publicUrl },
     });
 
     await logAction({
-      userId,
+      userId: ctx.userId,
+      organizationId: ctx.orgId,
       islem: "update",
-      entity: "Settings",
+      entity: "Organization",
       entityId: "logo",
       ozet: `Logo yüklendi: ${saved.originalName}`,
     });
@@ -239,9 +243,9 @@ export async function uploadLogo(
 }
 
 export async function deleteLogo(): Promise<ActionResult> {
-  const userId = await getUserId();
-  const existing = await db.sirketBilgisi.findUnique({
-    where: { userId },
+  const ctx = await requireRole(OrgRole.Admin);
+  const existing = await db.organization.findUnique({
+    where: { id: ctx.orgId },
     select: { logoUrl: true },
   });
   if (existing?.logoUrl?.startsWith("/api/files/")) {
@@ -252,16 +256,16 @@ export async function deleteLogo(): Promise<ActionResult> {
       /* sessiz */
     }
   }
-  await db.sirketBilgisi.upsert({
-    where: { userId },
-    create: { userId, ulke: "Türkiye", logoUrl: null },
-    update: { logoUrl: null },
+  await db.organization.update({
+    where: { id: ctx.orgId },
+    data: { logoUrl: null },
   });
 
   await logAction({
-    userId,
+    userId: ctx.userId,
+    organizationId: ctx.orgId,
     islem: "delete",
-    entity: "Settings",
+    entity: "Organization",
     entityId: "logo",
     ozet: "Logo silindi",
   });
@@ -271,7 +275,7 @@ export async function deleteLogo(): Promise<ActionResult> {
 }
 
 /* ============================================================
-   GÖRÜNÜM
+   GÖRÜNÜM (kullanıcı bazlı — herkes kendi temasını seçer)
    ============================================================ */
 
 const gorunumSchema = z.object({
@@ -302,7 +306,7 @@ export async function updateGorunum(
     islem: "update",
     entity: "Settings",
     entityId: "gorunum",
-    ozet: `Tema "${parsed.data.tema}", yoğunluk "${parsed.data.yogunluk}" olarak güncellendi`,
+    ozet: `Tema "${parsed.data.tema}", yoğunluk "${parsed.data.yogunluk}"`,
   });
 
   revalidatePath("/uygulama/ayarlar/gorunum");
@@ -311,6 +315,7 @@ export async function updateGorunum(
 
 /* ============================================================
    BİLDİRİMLER + VARSAYILANLAR
+   (Bildirim kullanıcı bazlı, varsayılanlar org bazlı)
    ============================================================ */
 
 const bildirimSchema = z.object({
@@ -322,8 +327,64 @@ const bildirimSchema = z.object({
   defaultVadeGun: z.coerce.number().int().min(0).max(365).default(30),
 });
 
+export async function updateBildirim(
+  formData: FormData,
+): Promise<ActionResult> {
+  const ctx = await getOrgContext();
+  const o: Record<string, unknown> = Object.fromEntries(formData.entries());
+  if (!("emailBildirim" in o)) o.emailBildirim = false;
+  if (!("pushBildirim" in o)) o.pushBildirim = false;
+
+  const parsed = bildirimSchema.safeParse(o);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Geçersiz" };
+  }
+
+  // Kullanıcı bazlı: email, push, vade uyarı
+  await db.userSettings.upsert({
+    where: { userId: ctx.userId },
+    create: {
+      userId: ctx.userId,
+      emailBildirim: parsed.data.emailBildirim,
+      pushBildirim: parsed.data.pushBildirim,
+      vadeUyariGun: parsed.data.vadeUyariGun,
+    },
+    update: {
+      emailBildirim: parsed.data.emailBildirim,
+      pushBildirim: parsed.data.pushBildirim,
+      vadeUyariGun: parsed.data.vadeUyariGun,
+    },
+  });
+
+  // Org bazlı varsayılanlar — Admin yetkisi gereklidir
+  // Sadece Owner/Admin değiştirebilir; diğer roller için sessizce kullanıcı
+  // tercihi olarak kalır.
+  if (ctx.role === OrgRole.Owner || ctx.role === OrgRole.Admin) {
+    await db.organization.update({
+      where: { id: ctx.orgId },
+      data: {
+        defaultKdvOrani: parsed.data.defaultKdvOrani,
+        defaultParaBirimi: parsed.data.defaultParaBirimi,
+        defaultVadeGun: parsed.data.defaultVadeGun,
+      },
+    });
+  }
+
+  await logAction({
+    userId: ctx.userId,
+    organizationId: ctx.orgId,
+    islem: "update",
+    entity: "Settings",
+    entityId: "bildirim",
+    ozet: "Bildirim tercihleri güncellendi",
+  });
+
+  revalidatePath("/uygulama/ayarlar/bildirim");
+  return { ok: true };
+}
+
 /* ============================================================
-   MODÜL TOGGLE
+   MODÜL TOGGLE — Organization bazlı (Owner/Admin)
    ============================================================ */
 
 const modulSchema = z.object({
@@ -338,7 +399,7 @@ const modulSchema = z.object({
 export async function updateModuller(
   formData: FormData,
 ): Promise<ActionResult> {
-  const userId = await getUserId();
+  const ctx = await requireRole(OrgRole.Admin);
   const o: Record<string, unknown> = {};
   for (const key of [
     "modulFaturalar",
@@ -356,10 +417,9 @@ export async function updateModuller(
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Geçersiz" };
   }
 
-  await db.userSettings.upsert({
-    where: { userId },
-    create: { userId, ...parsed.data },
-    update: parsed.data,
+  await db.organization.update({
+    where: { id: ctx.orgId },
+    data: parsed.data,
   });
 
   const aktif = Object.entries(parsed.data)
@@ -368,45 +428,14 @@ export async function updateModuller(
     .join(", ");
 
   await logAction({
-    userId,
+    userId: ctx.userId,
+    organizationId: ctx.orgId,
     islem: "update",
-    entity: "Settings",
+    entity: "Organization",
     entityId: "moduller",
     ozet: `Modül tercihleri güncellendi: ${aktif || "(hepsi kapalı)"}`,
   });
 
   revalidatePath("/uygulama", "layout");
-  return { ok: true };
-}
-
-export async function updateBildirim(
-  formData: FormData,
-): Promise<ActionResult> {
-  const userId = await getUserId();
-  const o: Record<string, unknown> = Object.fromEntries(formData.entries());
-  // Checkbox'lar formData'da yoksa false
-  if (!("emailBildirim" in o)) o.emailBildirim = false;
-  if (!("pushBildirim" in o)) o.pushBildirim = false;
-
-  const parsed = bildirimSchema.safeParse(o);
-  if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Geçersiz" };
-  }
-
-  await db.userSettings.upsert({
-    where: { userId },
-    create: { userId, ...parsed.data },
-    update: parsed.data,
-  });
-
-  await logAction({
-    userId,
-    islem: "update",
-    entity: "Settings",
-    entityId: "bildirim",
-    ozet: "Bildirim ve varsayılan tercihler güncellendi",
-  });
-
-  revalidatePath("/uygulama/ayarlar/bildirim");
   return { ok: true };
 }

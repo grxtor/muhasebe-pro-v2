@@ -1,6 +1,6 @@
 import { Users } from "lucide-react";
 import { db } from "@/lib/db";
-import { getUserId } from "@/lib/auth-helpers";
+import { getOrgId } from "@/lib/auth-helpers";
 import { ProfilList } from "./profil-list";
 import { nextProfilKodu } from "./actions";
 
@@ -15,14 +15,14 @@ export default async function ProfillerPage({
 }: {
   searchParams: Promise<{ q?: string; tip?: string; etiket?: string }>;
 }) {
-  const userId = await getUserId();
+  const orgId = await getOrgId();
   const { q = "", tip = "", etiket = "" } = await searchParams;
   const etiketId = etiket ? Number(etiket) : 0;
 
   const [profiller, tumEtiketler] = await Promise.all([
     db.cari.findMany({
       where: {
-        userId,
+        organizationId: orgId,
         ...(tip ? { tip: tip as never } : {}),
         ...(etiketId > 0
           ? { etiketler: { some: { tagId: etiketId } } }
@@ -48,7 +48,7 @@ export default async function ProfillerPage({
       },
     }),
     db.tag.findMany({
-      where: { userId },
+      where: { organizationId: orgId },
       orderBy: { ad: "asc" },
       select: { id: true, ad: true, renk: true },
     }),

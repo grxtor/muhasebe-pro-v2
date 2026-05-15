@@ -22,17 +22,22 @@ model User {
   email         String    @unique
   emailVerified DateTime?
   image         String?
-  password      String? // Email/şifre girişi için (hash'lenmiş — bcrypt)
+  password      String?
 
-  // Muhasebe Pro özel alanları
   adSoyad     String?
   sirketAdi   String?
   kayitTarihi DateTime @default(now())
 
+  // Şu an aktif çalıştığı organizasyon
+  currentOrgId String?
+
   accounts Account[]
   sessions Session[]
 
-  // Sahip olduğu veriler — kaskat silme
+  sahipOlduguOrglar Organization[]       @relation("OrgOwner")
+  uyelikler         OrganizationMember[]
+
+  // Yaratıcı / "createdBy" ilişkileri (audit için)
   cariler         Cari[]
   hareketler      Hareket[]
   odemeNotlari    OdemeNotu[]
@@ -48,6 +53,104 @@ model User {
   auditLogs       AuditLog[]
 
   @@index([email])
+  @@index([currentOrgId])
+}
+
+// ============================================================
+//  Multi-tenant: Organization + Member + Invitation
+// ============================================================
+
+enum OrgRole {
+  Owner          // Tam yetki + kullanıcı yönetimi
+  Admin          // Tam yetki ama kullanıcı yönetemez
+  Muhasebeci     // CRUD yapar
+  Goruntuleyici  // Sadece okur
+}
+
+model Organization {
+  id      String @id @default(cuid())
+  ad      String
+  slug    String @unique
+  ownerId String
+  owner   User   @relation("OrgOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  // Şirket bilgileri (eski SirketBilgisi'nden taşındı)
+  sirketAdi    String?
+  vergiNo      String?
+  vergiDairesi String?
+  tcKimlikNo   String?
+  adres        String?
+  sehir        String?
+  ulke         String  @default("Türkiye")
+  telefon      String?
+  email        String?
+  website      String?
+  iban         String?
+  bankaAdi     String?
+  logoUrl      String?
+
+  // Modül toggle'ları (eski UserSettings'ten taşındı)
+  modulFaturalar      Boolean @default(true)
+  modulHareketler     Boolean @default(true)
+  modulUrunler        Boolean @default(false)
+  modulTekrarlayanlar Boolean @default(true)
+  modulHatirlaticilar Boolean @default(true)
+  modulEtiketler      Boolean @default(true)
+
+  defaultKdvOrani   Decimal @default(20) @db.Decimal(5, 2)
+  defaultParaBirimi String  @default("TRY") @db.VarChar(3)
+  defaultVadeGun    Int     @default(30)
+
+  uyeler   OrganizationMember[]
+  davetler Invitation[]
+
+  // Domain ilişkileri (org-bazlı izolasyon)
+  cariler         Cari[]
+  hareketler      Hareket[]
+  odemeNotlari    OdemeNotu[]
+  faturalar       Fatura[]
+  dekontlar       Dekont[]
+  etiketler       Tag[]
+  hatirlaticilar  Hatirlatici[]
+  tekrarlayanlar  TekrarlayanKayit[]
+  urunler         Urun[]
+  stokHareketleri StokHareketi[]
+  auditLogs       AuditLog[]
+
+  olusturmaTarihi  DateTime @default(now())
+  guncellemeTarihi DateTime @updatedAt
+
+  @@index([ownerId])
+}
+
+model OrganizationMember {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           OrgRole      @default(Goruntuleyici)
+  invitedBy      String?
+  joinedAt       DateTime     @default(now())
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+}
+
+model Invitation {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  role           OrgRole      @default(Goruntuleyici)
+  token          String       @unique
+  invitedBy      String
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  createdAt      DateTime     @default(now())
+
+  @@index([email])
+  @@index([token])
 }
 
 model Account {
@@ -134,6 +237,9 @@ model Cari {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
   kod   String
   unvan String
   tip   CariTipi @default(Musteri)
@@ -162,8 +268,9 @@ model Cari {
 
   @@unique([userId, kod])
   @@index([userId])
-  @@index([userId, aktif])
-  @@index([userId, unvan])
+  @@index([organizationId])
+  @@index([organizationId, aktif])
+  @@index([organizationId, unvan])
 }
 
 /// Para hareketi — tahsilat veya ödeme kaydı.
@@ -171,6 +278,9 @@ model Hareket {
   id     Int    @id @default(autoincrement())
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   cariId Int
   cari   Cari @relation(fields: [cariId], references: [id], onDelete: Cascade)
@@ -186,6 +296,7 @@ model Hareket {
   olusturmaTarihi DateTime @default(now())
 
   @@index([userId, tarih(sort: Desc)])
+  @@index([organizationId, tarih(sort: Desc)])
   @@index([cariId])
 }
 
@@ -194,6 +305,9 @@ model OdemeNotu {
   id     Int    @id @default(autoincrement())
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   cariId Int
   cari   Cari @relation(fields: [cariId], references: [id], onDelete: Cascade)
@@ -215,7 +329,8 @@ model OdemeNotu {
   guncellemeTarihi DateTime @updatedAt
 
   @@index([userId, yon, durum])
-  @@index([userId, vadeTarihi])
+  @@index([organizationId, yon, durum])
+  @@index([organizationId, vadeTarihi])
   @@index([cariId])
 }
 
@@ -224,6 +339,9 @@ model Fatura {
   id     Int    @id @default(autoincrement())
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   cariId Int
   cari   Cari @relation(fields: [cariId], references: [id], onDelete: Restrict)
@@ -250,7 +368,8 @@ model Fatura {
 
   @@unique([userId, faturaNo])
   @@index([userId, tarih(sort: Desc)])
-  @@index([userId, yon, durum])
+  @@index([organizationId, tarih(sort: Desc)])
+  @@index([organizationId, yon, durum])
   @@index([cariId])
 }
 
@@ -259,6 +378,9 @@ model Dekont {
   id     Int    @id @default(autoincrement())
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   cariId      Int?
   odemeNotuId Int?
@@ -274,6 +396,7 @@ model Dekont {
   eklemeTarihi DateTime @default(now())
 
   @@index([userId])
+  @@index([organizationId])
   @@index([cariId])
   @@index([odemeNotuId])
   @@index([faturaId])
@@ -346,14 +469,19 @@ model Tag {
   id     Int    @id @default(autoincrement())
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
   ad     String
-  renk   String @default("gray") // gray, red, orange, yellow, green, blue, purple, pink
+  renk   String @default("gray")
   aciklama String?
   olusturmaTarihi DateTime @default(now())
   cariler CariTag[]
 
   @@unique([userId, ad])
   @@index([userId])
+  @@index([organizationId])
 }
 
 model CariTag {
@@ -380,6 +508,10 @@ model Hatirlatici {
   id     Int    @id @default(autoincrement())
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
   baslik           String
   aciklama         String?
   hatirlatmaTarihi DateTime
@@ -395,6 +527,7 @@ model Hatirlatici {
   olusturmaTarihi DateTime @default(now())
 
   @@index([userId, tamamlandi, hatirlatmaTarihi])
+  @@index([organizationId, tamamlandi, hatirlatmaTarihi])
   @@index([cariId])
   @@index([faturaId])
 }
@@ -421,7 +554,11 @@ model TekrarlayanKayit {
   id     Int    @id @default(autoincrement())
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  ad     String  // "Ofis kirası", "Internet aboneliği"
+
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  ad     String
   tip    TekrarTip @default(OdemeNotu)
   cariId Int
   cari   Cari @relation(fields: [cariId], references: [id], onDelete: Cascade)
@@ -446,6 +583,7 @@ model TekrarlayanKayit {
   guncellemeTarihi DateTime @updatedAt
 
   @@index([userId, aktif, sonrakiTarih])
+  @@index([organizationId, aktif, sonrakiTarih])
   @@index([cariId])
 }
 
@@ -463,6 +601,10 @@ model Urun {
   id     Int    @id @default(autoincrement())
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
   kod    String
   ad     String
   aciklama String?
@@ -487,14 +629,19 @@ model Urun {
 
   @@unique([userId, kod])
   @@index([userId, aktif])
-  @@index([userId, kategori])
-  @@index([userId, ad])
+  @@index([organizationId, aktif])
+  @@index([organizationId, kategori])
+  @@index([organizationId, ad])
 }
 
 model StokHareketi {
   id     Int    @id @default(autoincrement())
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
   urunId Int
   urun   Urun @relation(fields: [urunId], references: [id], onDelete: Cascade)
   tip       StokHareketTipi
@@ -511,6 +658,7 @@ model StokHareketi {
   olusturmaTarihi DateTime @default(now())
 
   @@index([userId, tarih(sort: Desc)])
+  @@index([organizationId, tarih(sort: Desc)])
   @@index([urunId, tarih(sort: Desc)])
 }
 
@@ -522,10 +670,14 @@ model AuditLog {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  islem     String   // "create" | "update" | "delete" | "login" | "logout" | "tahsil" | "ode"
-  entity    String   // "Cari" | "Fatura" | "OdemeNotu" | "Hareket" | "Urun" | "Hatirlatici" | "TekrarlayanKayit" | "Auth"
+
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  islem     String
+  entity    String
   entityId  String?
-  ozet      String   // Kullanıcıya okunabilir özet: "Profil Ahmet Yılmaz oluşturuldu"
+  ozet      String
   oncesi    Json?
   sonrasi   Json?
   ip        String?
@@ -534,6 +686,7 @@ model AuditLog {
   createdAt DateTime @default(now())
 
   @@index([userId, createdAt(sort: Desc)])
+  @@index([organizationId, createdAt(sort: Desc)])
   @@index([entity, entityId])
 }
 

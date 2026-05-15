@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { getUserId } from "@/lib/auth-helpers";
+import { getOrgId } from "@/lib/auth-helpers";
 import { isModuleActive } from "@/lib/module-guard";
 import { ModuleClosed } from "@/components/ui/module-closed";
 import { TekrarlayanList } from "./tekrarlayan-list";
@@ -11,15 +11,15 @@ export default async function TekrarlayanlarPage() {
   if (!(await isModuleActive("tekrarlayanlar"))) {
     return <ModuleClosed modulAd="Tekrarlayan Kayıtlar" />;
   }
-  const userId = await getUserId();
+  const orgId = await getOrgId();
   const [items, cariler] = await Promise.all([
     db.tekrarlayanKayit.findMany({
-      where: { userId },
+      where: { organizationId: orgId },
       orderBy: [{ aktif: "desc" }, { sonrakiTarih: "asc" }],
       include: { cari: { select: { id: true, kod: true, unvan: true } } },
     }),
     db.cari.findMany({
-      where: { userId, aktif: true },
+      where: { organizationId: orgId, aktif: true },
       orderBy: { unvan: "asc" },
       select: { id: true, kod: true, unvan: true },
     }),

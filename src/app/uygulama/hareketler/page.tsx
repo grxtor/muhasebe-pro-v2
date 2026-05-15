@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { getUserId } from "@/lib/auth-helpers";
+import { getOrgId } from "@/lib/auth-helpers";
 import { isModuleActive } from "@/lib/module-guard";
 import { ModuleClosed } from "@/components/ui/module-closed";
 import { HareketTipi } from "@/lib/enums";
@@ -16,11 +16,11 @@ export default async function HareketlerPage({
   if (!(await isModuleActive("hareketler"))) {
     return <ModuleClosed modulAd="Hareketler" />;
   }
-  const userId = await getUserId();
+  const orgId = await getOrgId();
   const { q = "", tip = "" } = await searchParams;
 
   const where = {
-    userId,
+    organizationId: orgId,
     ...(tip ? { tip: tip as never } : {}),
     ...(q
       ? {
@@ -41,11 +41,11 @@ export default async function HareketlerPage({
       include: { cari: { select: { kod: true, unvan: true } } },
     }),
     db.hareket.aggregate({
-      where: { userId, tip: HareketTipi.Alacak as never },
+      where: { organizationId: orgId, tip: HareketTipi.Alacak as never },
       _sum: { tutar: true },
     }),
     db.hareket.aggregate({
-      where: { userId, tip: HareketTipi.Borc as never },
+      where: { organizationId: orgId, tip: HareketTipi.Borc as never },
       _sum: { tutar: true },
     }),
   ]);

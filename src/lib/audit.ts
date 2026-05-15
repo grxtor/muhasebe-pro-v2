@@ -5,8 +5,9 @@ import { db } from "./db";
 
 interface LogActionParams {
   userId: string;
-  islem: string; // "create" | "update" | "delete" | "tahsil" | "ode" | "login" | "logout"
-  entity: string; // "Cari" | "Fatura" | "OdemeNotu" | "Hareket" | "Urun" | "Hatirlatici" | "TekrarlayanKayit" | "Auth" | "Settings"
+  organizationId?: string | null;
+  islem: string;
+  entity: string;
   entityId?: string | number;
   ozet: string;
   oncesi?: unknown;
@@ -14,7 +15,8 @@ interface LogActionParams {
 }
 
 /**
- * Audit log kaydı oluştur. Fail-safe: hata yutulur, esas akışı kesmez.
+ * Audit log kaydı oluştur. Fail-safe.
+ * organizationId verilmezse kullanıcının currentOrgId'sinden çekilir.
  */
 export async function logAction(params: LogActionParams) {
   try {
@@ -23,9 +25,19 @@ export async function logAction(params: LogActionParams) {
       h.get("x-forwarded-for")?.split(",")[0].trim() ?? h.get("x-real-ip") ?? null;
     const userAgent = h.get("user-agent") ?? null;
 
+    let orgId = params.organizationId ?? null;
+    if (!orgId) {
+      const u = await db.user.findUnique({
+        where: { id: params.userId },
+        select: { currentOrgId: true },
+      });
+      orgId = u?.currentOrgId ?? null;
+    }
+
     await db.auditLog.create({
       data: {
         userId: params.userId,
+        organizationId: orgId,
         islem: params.islem,
         entity: params.entity,
         entityId: params.entityId != null ? String(params.entityId) : null,
@@ -43,7 +55,6 @@ export async function logAction(params: LogActionParams) {
       },
     });
   } catch (err) {
-    // Audit kaydı asla esas akışı engellemez
     console.error("[audit] logAction failed:", err);
   }
 }

@@ -8,6 +8,7 @@ import { SectionCard } from "../profil-form";
 import { updateSirketBilgisi } from "../actions";
 
 interface Initial {
+  ad: string;
   sirketAdi: string;
   vergiNo: string;
   vergiDairesi: string;
@@ -38,8 +39,17 @@ export function SirketForm({ initial }: { initial: Initial }) {
         description="Faturalarda, dekontlarda ve raporlarda görünür"
       >
         <div className="grid gap-4 sm:grid-cols-2">
+          <Field className="sm:col-span-2">
+            <Label htmlFor="ad">Organizasyon Adı (giriş ekranında görünür)</Label>
+            <TextInput
+              id="ad"
+              name="ad"
+              defaultValue={initial.ad}
+              placeholder="ör. Ocean Yazılım"
+            />
+          </Field>
           <Field>
-            <Label htmlFor="sirketAdi">Şirket / Ad Soyad</Label>
+            <Label htmlFor="sirketAdi">Şirket Resmî Adı / Ad Soyad</Label>
             <TextInput
               id="sirketAdi"
               name="sirketAdi"

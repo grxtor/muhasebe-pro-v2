@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { getUserId } from "@/lib/auth-helpers";
+import { getOrgContext } from "@/lib/auth-helpers";
 import { logAction } from "@/lib/audit";
 import { TAG_COLORS } from "@/lib/enums";
 
@@ -24,14 +24,14 @@ function clean(formData: FormData) {
 }
 
 export async function createTag(formData: FormData): Promise<ActionResult> {
-  const userId = await getUserId();
+  const ctx = await getOrgContext();
   const parsed = tagSchema.safeParse(clean(formData));
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Geçersiz" };
   }
 
   const exists = await db.tag.findFirst({
-    where: { userId, ad: parsed.data.ad },
+    where: { organizationId: ctx.orgId, ad: parsed.data.ad },
     select: { id: true },
   });
   if (exists) {
@@ -40,7 +40,8 @@ export async function createTag(formData: FormData): Promise<ActionResult> {
 
   const tag = await db.tag.create({
     data: {
-      userId,
+      userId: ctx.userId,
+      organizationId: ctx.orgId,
       ad: parsed.data.ad,
       renk: parsed.data.renk,
       aciklama: parsed.data.aciklama || null,
@@ -48,7 +49,8 @@ export async function createTag(formData: FormData): Promise<ActionResult> {
   });
 
   await logAction({
-    userId,
+    userId: ctx.userId,
+    organizationId: ctx.orgId,
     islem: "create",
     entity: "Tag",
     entityId: tag.id,
@@ -64,21 +66,25 @@ export async function updateTag(
   id: number,
   formData: FormData,
 ): Promise<ActionResult> {
-  const userId = await getUserId();
+  const ctx = await getOrgContext();
   const parsed = tagSchema.safeParse(clean(formData));
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Geçersiz" };
   }
 
   const existing = await db.tag.findFirst({
-    where: { id, userId },
+    where: { id, organizationId: ctx.orgId },
     select: { id: true, ad: true },
   });
   if (!existing) return { ok: false, error: "Etiket bulunamadı" };
 
   if (existing.ad !== parsed.data.ad) {
     const dupe = await db.tag.findFirst({
-      where: { userId, ad: parsed.data.ad, NOT: { id } },
+      where: {
+        organizationId: ctx.orgId,
+        ad: parsed.data.ad,
+        NOT: { id },
+      },
       select: { id: true },
     });
     if (dupe) {
@@ -96,7 +102,8 @@ export async function updateTag(
   });
 
   await logAction({
-    userId,
+    userId: ctx.userId,
+    organizationId: ctx.orgId,
     islem: "update",
     entity: "Tag",
     entityId: id,
@@ -109,9 +116,9 @@ export async function updateTag(
 }
 
 export async function deleteTag(id: number): Promise<ActionResult> {
-  const userId = await getUserId();
+  const ctx = await getOrgContext();
   const existing = await db.tag.findFirst({
-    where: { id, userId },
+    where: { id, organizationId: ctx.orgId },
     select: { ad: true },
   });
   if (!existing) return { ok: false, error: "Etiket bulunamadı" };
@@ -119,7 +126,8 @@ export async function deleteTag(id: number): Promise<ActionResult> {
   await db.tag.delete({ where: { id } });
 
   await logAction({
-    userId,
+    userId: ctx.userId,
+    organizationId: ctx.orgId,
     islem: "delete",
     entity: "Tag",
     entityId: id,
@@ -131,26 +139,20 @@ export async function deleteTag(id: number): Promise<ActionResult> {
   return { ok: true };
 }
 
-/**
- * Bir profile etiket atar (toplu). Mevcut etiketler değiştirilir,
- * verilen liste ile tam eşleşir.
- */
 export async function setCariTags(
   cariId: number,
   tagIds: number[],
 ): Promise<ActionResult> {
-  const userId = await getUserId();
+  const ctx = await getOrgContext();
 
-  // Cari sahibi kontrol
   const cari = await db.cari.findFirst({
-    where: { id: cariId, userId },
+    where: { id: cariId, organizationId: ctx.orgId },
     select: { id: true, unvan: true },
   });
   if (!cari) return { ok: false, error: "Profil bulunamadı" };
 
-  // Tag'lerin de kullanıcıya ait olduğunu doğrula
   const validTags = await db.tag.findMany({
-    where: { id: { in: tagIds }, userId },
+    where: { id: { in: tagIds }, organizationId: ctx.orgId },
     select: { id: true },
   });
   const validIds = new Set(validTags.map((t) => t.id));
@@ -166,7 +168,8 @@ export async function setCariTags(
   ]);
 
   await logAction({
-    userId,
+    userId: ctx.userId,
+    organizationId: ctx.orgId,
     islem: "update",
     entity: "Cari",
     entityId: cariId,

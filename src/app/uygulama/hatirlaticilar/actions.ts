@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { getUserId } from "@/lib/auth-helpers";
+import { getOrgContext } from "@/lib/auth-helpers";
 import { logAction } from "@/lib/audit";
 import { HatirlaticiOncelik } from "@/lib/enums";
 
@@ -39,7 +39,7 @@ function parse(formData: FormData) {
 export async function createHatirlatici(
   formData: FormData,
 ): Promise<ActionResult> {
-  const userId = await getUserId();
+  const ctx = await getOrgContext();
   const parsed = parse(formData);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Geçersiz" };
@@ -47,7 +47,8 @@ export async function createHatirlatici(
 
   const h = await db.hatirlatici.create({
     data: {
-      userId,
+      userId: ctx.userId,
+      organizationId: ctx.orgId,
       baslik: parsed.data.baslik,
       aciklama: parsed.data.aciklama || null,
       hatirlatmaTarihi: parsed.data.hatirlatmaTarihi,
@@ -57,7 +58,8 @@ export async function createHatirlatici(
   });
 
   await logAction({
-    userId,
+    userId: ctx.userId,
+    organizationId: ctx.orgId,
     islem: "create",
     entity: "Hatirlatici",
     entityId: h.id,
@@ -73,14 +75,14 @@ export async function updateHatirlatici(
   id: number,
   formData: FormData,
 ): Promise<ActionResult> {
-  const userId = await getUserId();
+  const ctx = await getOrgContext();
   const parsed = parse(formData);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Geçersiz" };
   }
 
   const existing = await db.hatirlatici.findFirst({
-    where: { id, userId },
+    where: { id, organizationId: ctx.orgId },
     select: { id: true },
   });
   if (!existing) return { ok: false, error: "Kayıt bulunamadı" };
@@ -97,7 +99,8 @@ export async function updateHatirlatici(
   });
 
   await logAction({
-    userId,
+    userId: ctx.userId,
+    organizationId: ctx.orgId,
     islem: "update",
     entity: "Hatirlatici",
     entityId: id,
@@ -112,9 +115,9 @@ export async function toggleHatirlaticiTamamla(
   id: number,
   tamamlandi: boolean,
 ): Promise<ActionResult> {
-  const userId = await getUserId();
+  const ctx = await getOrgContext();
   const existing = await db.hatirlatici.findFirst({
-    where: { id, userId },
+    where: { id, organizationId: ctx.orgId },
     select: { baslik: true },
   });
   if (!existing) return { ok: false, error: "Kayıt bulunamadı" };
@@ -128,7 +131,8 @@ export async function toggleHatirlaticiTamamla(
   });
 
   await logAction({
-    userId,
+    userId: ctx.userId,
+    organizationId: ctx.orgId,
     islem: "update",
     entity: "Hatirlatici",
     entityId: id,
@@ -141,9 +145,9 @@ export async function toggleHatirlaticiTamamla(
 }
 
 export async function deleteHatirlatici(id: number): Promise<ActionResult> {
-  const userId = await getUserId();
+  const ctx = await getOrgContext();
   const existing = await db.hatirlatici.findFirst({
-    where: { id, userId },
+    where: { id, organizationId: ctx.orgId },
     select: { baslik: true },
   });
   if (!existing) return { ok: false, error: "Kayıt bulunamadı" };
@@ -151,11 +155,12 @@ export async function deleteHatirlatici(id: number): Promise<ActionResult> {
   await db.hatirlatici.delete({ where: { id } });
 
   await logAction({
-    userId,
+    userId: ctx.userId,
+    organizationId: ctx.orgId,
     islem: "delete",
     entity: "Hatirlatici",
     entityId: id,
-    ozet: `Hatırlatıcı silindi: ${existing.baslik}`,
+    ozet: `Silindi: ${existing.baslik}`,
   });
 
   revalidatePath("/uygulama/hatirlaticilar");

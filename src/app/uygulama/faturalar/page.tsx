@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { getUserId } from "@/lib/auth-helpers";
+import { getOrgId } from "@/lib/auth-helpers";
 import { isModuleActive } from "@/lib/module-guard";
 import { ModuleClosed } from "@/components/ui/module-closed";
 import { FaturaYonu, FaturaDurumu } from "@/lib/enums";
@@ -17,11 +17,11 @@ export default async function FaturalarPage({
   if (!(await isModuleActive("faturalar"))) {
     return <ModuleClosed modulAd="Faturalar" />;
   }
-  const userId = await getUserId();
+  const orgId = await getOrgId();
   const { q = "", yon = "", durum = "" } = await searchParams;
 
   const where = {
-    userId,
+    organizationId: orgId,
     ...(yon ? { yon: yon as never } : {}),
     ...(durum ? { durum: durum as never } : {}),
     ...(q
@@ -42,20 +42,19 @@ export default async function FaturalarPage({
       include: { cari: { select: { kod: true, unvan: true } } },
     }),
     db.cari.findMany({
-      where: { userId, aktif: true },
+      where: { organizationId: orgId, aktif: true },
       orderBy: { unvan: "asc" },
       select: { id: true, kod: true, unvan: true },
     }),
-    computeStats(userId),
+    computeStats(orgId),
     nextFaturaNo(),
     db.dekont.groupBy({
       by: ["faturaId"],
-      where: { userId, faturaId: { not: null } },
+      where: { organizationId: orgId, faturaId: { not: null } },
       _count: { id: true },
     }),
   ]);
 
-  // Her faturanın dekont sayısı
   const dekontMap = new Map<number, number>();
   for (const row of dekontSayilari) {
     if (row.faturaId != null) dekontMap.set(row.faturaId, row._count.id);
@@ -91,9 +90,9 @@ export default async function FaturalarPage({
   );
 }
 
-async function computeStats(userId: string) {
+async function computeStats(orgId: string) {
   const aktif = {
-    userId,
+    organizationId: orgId,
     durum: { not: FaturaDurumu.Iptal as never },
   };
   const [gonderilen, gelen, bekleyen, adet] = await Promise.all([
@@ -115,7 +114,7 @@ async function computeStats(userId: string) {
       },
       _sum: { toplamTutar: true, odenenTutar: true },
     }),
-    db.fatura.count({ where: { userId } }),
+    db.fatura.count({ where: { organizationId: orgId } }),
   ]);
 
   return {

@@ -1,14 +1,19 @@
 import { NextResponse } from "next/server";
 import { readFile } from "@/lib/files";
 import { getCurrentSession } from "@/lib/auth-helpers";
+import { db } from "@/lib/db";
 
 /**
  * Authenticated file serve.
  *
- * URL: /api/files/{kategori}/{userId}/{filename}
+ * URL'ler:
+ *   /api/files/dekontlar/{orgId}/{filename}
+ *   /api/files/logolar/{orgId}/{filename}
+ *   /api/files/dekontlar/{userId}/{filename}   (eski, geriye uyumluluk)
+ *   /api/files/logolar/{userId}/{filename}     (eski, geriye uyumluluk)
  *
- * Auth kuralı: dosyanın userId'si == oturumdaki userId olmalı.
- * Bu sayede sadece kullanıcı kendi dosyalarına erişir.
+ * Auth: dosya kullanıcının üyesi olduğu org veya kendi user-bazlı klasöründe
+ * ise serve edilir; aksi halde 403.
  */
 export async function GET(
   _req: Request,
@@ -24,8 +29,20 @@ export async function GET(
     return new NextResponse("Geçersiz yol", { status: 400 });
   }
 
-  const [_kategori, userIdFromPath, ..._rest] = segments;
-  if (userIdFromPath !== session.user.id) {
+  const [, ownerIdFromPath] = segments;
+
+  // ownerId ya bir orgId (kullanıcı üyesi olmalı) ya da userId (kendisi olmalı)
+  const isOwnUser = ownerIdFromPath === session.user.id;
+  let isMember = false;
+  if (!isOwnUser) {
+    const membership = await db.organizationMember.findFirst({
+      where: { userId: session.user.id, organizationId: ownerIdFromPath },
+      select: { id: true },
+    });
+    isMember = !!membership;
+  }
+
+  if (!isOwnUser && !isMember) {
     return new NextResponse("Forbidden", { status: 403 });
   }
 
@@ -33,10 +50,10 @@ export async function GET(
 
   try {
     const { buffer, mimeType } = await readFile(relativePath);
-    // Resimler ve PDF'ler inline gösterilsin
-    const safeMime = mimeType.startsWith("image/") || mimeType === "application/pdf"
-      ? mimeType
-      : "application/octet-stream";
+    const safeMime =
+      mimeType.startsWith("image/") || mimeType === "application/pdf"
+        ? mimeType
+        : "application/octet-stream";
     return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {

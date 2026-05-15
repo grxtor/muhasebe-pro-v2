@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { db } from "@/lib/db";
 import { auth } from "@/auth";
-import { getUserId } from "@/lib/auth-helpers";
+import { getOrgId } from "@/lib/auth-helpers";
 import { OdemeYonu, OdemeDurumu } from "@/lib/enums";
 import { StatCard } from "@/components/ui/stat-card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -18,7 +18,7 @@ export const metadata = { title: "Anasayfa" };
 export const dynamic = "force-dynamic";
 
 export default async function Anasayfa() {
-  const userId = await getUserId();
+  const orgId = await getOrgId();
   const session = await auth();
   const bugun = new Date();
   bugun.setHours(0, 0, 0, 0);
@@ -37,7 +37,7 @@ export default async function Anasayfa() {
   ] = await Promise.all([
     db.odemeNotu.aggregate({
       where: {
-        userId,
+        organizationId: orgId,
         yon: OdemeYonu.Alacak as never,
         durum: acikDurumlar,
       },
@@ -45,7 +45,7 @@ export default async function Anasayfa() {
     }),
     db.odemeNotu.aggregate({
       where: {
-        userId,
+        organizationId: orgId,
         yon: OdemeYonu.Borc as never,
         durum: acikDurumlar,
       },
@@ -53,7 +53,7 @@ export default async function Anasayfa() {
     }),
     db.odemeNotu.count({
       where: {
-        userId,
+        organizationId: orgId,
         yon: OdemeYonu.Alacak as never,
         durum: acikDurumlar,
         vadeTarihi: { lt: bugun },
@@ -61,7 +61,7 @@ export default async function Anasayfa() {
     }),
     db.odemeNotu.count({
       where: {
-        userId,
+        organizationId: orgId,
         yon: OdemeYonu.Borc as never,
         durum: acikDurumlar,
         vadeTarihi: { lt: bugun },
@@ -69,7 +69,7 @@ export default async function Anasayfa() {
     }),
     db.odemeNotu.findMany({
       where: {
-        userId,
+        organizationId: orgId,
         yon: OdemeYonu.Alacak as never,
         durum: acikDurumlar,
       },
@@ -79,7 +79,7 @@ export default async function Anasayfa() {
     }),
     db.odemeNotu.findMany({
       where: {
-        userId,
+        organizationId: orgId,
         yon: OdemeYonu.Borc as never,
         durum: acikDurumlar,
       },

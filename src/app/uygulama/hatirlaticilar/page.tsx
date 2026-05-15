@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { getUserId } from "@/lib/auth-helpers";
+import { getOrgId } from "@/lib/auth-helpers";
 import { isModuleActive } from "@/lib/module-guard";
 import { ModuleClosed } from "@/components/ui/module-closed";
 import { HatirlaticiList } from "./hatirlatici-list";
@@ -15,11 +15,13 @@ export default async function HatirlaticilarPage({
   if (!(await isModuleActive("hatirlaticilar"))) {
     return <ModuleClosed modulAd="Hatırlatıcılar" />;
   }
-  const userId = await getUserId();
+  const orgId = await getOrgId();
   const { tab = "acik" } = await searchParams;
 
   const where =
-    tab === "tamamlandi" ? { userId, tamamlandi: true } : { userId, tamamlandi: false };
+    tab === "tamamlandi"
+      ? { organizationId: orgId, tamamlandi: true }
+      : { organizationId: orgId, tamamlandi: false };
 
   const [items, cariler, sayilar] = await Promise.all([
     db.hatirlatici.findMany({
@@ -28,13 +30,17 @@ export default async function HatirlaticilarPage({
       include: { cari: { select: { id: true, kod: true, unvan: true } } },
     }),
     db.cari.findMany({
-      where: { userId, aktif: true },
+      where: { organizationId: orgId, aktif: true },
       orderBy: { unvan: "asc" },
       select: { id: true, kod: true, unvan: true },
     }),
     Promise.all([
-      db.hatirlatici.count({ where: { userId, tamamlandi: false } }),
-      db.hatirlatici.count({ where: { userId, tamamlandi: true } }),
+      db.hatirlatici.count({
+        where: { organizationId: orgId, tamamlandi: false },
+      }),
+      db.hatirlatici.count({
+        where: { organizationId: orgId, tamamlandi: true },
+      }),
     ]),
   ]);
 

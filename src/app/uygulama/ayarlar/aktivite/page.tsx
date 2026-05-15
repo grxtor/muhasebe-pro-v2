@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { getUserId } from "@/lib/auth-helpers";
+import { getOrgId } from "@/lib/auth-helpers";
 import { History, FileEdit, FilePlus, FileX, LogIn } from "lucide-react";
 import { SectionCard } from "../profil-form";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -9,24 +9,25 @@ export const metadata = { title: "Aktivite Geçmişi" };
 export const dynamic = "force-dynamic";
 
 export default async function AktivitePage() {
-  const userId = await getUserId();
+  const orgId = await getOrgId();
   const logs = await db.auditLog.findMany({
-    where: { userId },
+    where: { organizationId: orgId },
     orderBy: { createdAt: "desc" },
     take: 200,
+    include: { user: { select: { adSoyad: true, email: true } } },
   });
 
   return (
     <SectionCard
       title="Aktivite Geçmişi"
-      description="Son 200 işlem — hesabınızda yapılan tüm değişiklikler"
+      description="Son 200 işlem — şirketinizde yapılan tüm değişiklikler (kim, ne zaman, ne)"
     >
       {logs.length === 0 ? (
         <EmptyState
           compact
           icon={<History size={22} />}
           title="Henüz aktivite yok"
-          description="Bir işlem yaptığınızda burada görünecek"
+          description="Bir işlem yapıldığında burada görünecek"
         />
       ) : (
         <ul className="space-y-1">
@@ -37,20 +38,19 @@ export default async function AktivitePage() {
             >
               <div
                 className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-full"
-                style={{
-                  background: iconBg(log.islem),
-                  color: iconColor(log.islem),
-                }}
+                style={{ background: iconBg(log.islem), color: iconColor(log.islem) }}
               >
                 <IslemIcon islem={log.islem} />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="text-sm">{log.ozet}</div>
                 <div
-                  className="mt-0.5 flex items-center gap-2 text-xs"
+                  className="mt-0.5 flex flex-wrap items-center gap-2 text-xs"
                   style={{ color: "var(--text-soft)" }}
                 >
                   <span>{formatTarihSaat(log.createdAt)}</span>
+                  <span>·</span>
+                  <span>{log.user?.adSoyad ?? log.user?.email ?? "Sistem"}</span>
                   <span>·</span>
                   <span className="font-mono">{log.entity}</span>
                   {log.ip && (
@@ -86,27 +86,13 @@ function IslemIcon({ islem }: { islem: string }) {
 }
 
 function iconBg(islem: string): string {
-  switch (islem) {
-    case "create":
-      return "var(--positive-soft)";
-    case "delete":
-      return "var(--negative-soft)";
-    case "update":
-      return "var(--surface-muted)";
-    default:
-      return "var(--surface-muted)";
-  }
+  if (islem === "create") return "var(--positive-soft)";
+  if (islem === "delete") return "var(--negative-soft)";
+  return "var(--surface-muted)";
 }
 
 function iconColor(islem: string): string {
-  switch (islem) {
-    case "create":
-      return "var(--positive)";
-    case "delete":
-      return "var(--negative)";
-    case "update":
-      return "var(--text-muted)";
-    default:
-      return "var(--text-muted)";
-  }
+  if (islem === "create") return "var(--positive)";
+  if (islem === "delete") return "var(--negative)";
+  return "var(--text-muted)";
 }

@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { getUserId } from "@/lib/auth-helpers";
+import { getOrgId } from "@/lib/auth-helpers";
 import { OdemeYonu, OdemeDurumu } from "@/lib/enums";
 import { OdemeNotuList } from "../_lib/odeme-notu-list";
 
@@ -18,11 +18,11 @@ async function loadView(
   spPromise: Promise<{ q?: string; durum?: string }>,
   yon: typeof OdemeYonu.Alacak | typeof OdemeYonu.Borc,
 ) {
-  const userId = await getUserId();
+  const orgId = await getOrgId();
   const { q = "", durum = "" } = await spPromise;
 
   const where = {
-    userId,
+    organizationId: orgId,
     yon: yon as never,
     ...(durum ? { durum: durum as never } : {}),
     ...(q
@@ -43,11 +43,11 @@ async function loadView(
       include: { cari: { select: { kod: true, unvan: true } } },
     }),
     db.cari.findMany({
-      where: { userId, aktif: true },
+      where: { organizationId: orgId, aktif: true },
       orderBy: { unvan: "asc" },
       select: { id: true, kod: true, unvan: true },
     }),
-    computeStats(userId, yon),
+    computeStats(orgId, yon),
   ]);
 
   const serialized = items.map((o) => ({
@@ -75,14 +75,14 @@ async function loadView(
 }
 
 async function computeStats(
-  userId: string,
+  orgId: string,
   yon: typeof OdemeYonu.Alacak | typeof OdemeYonu.Borc,
 ) {
   const bugun = new Date();
   bugun.setHours(0, 0, 0, 0);
 
   const acik = {
-    userId,
+    organizationId: orgId,
     yon: yon as never,
     durum: { in: [OdemeDurumu.Beklemede, OdemeDurumu.KismiOdendi] as never },
   };

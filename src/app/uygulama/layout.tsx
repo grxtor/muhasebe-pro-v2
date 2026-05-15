@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { readModuleFlags } from "@/lib/modules";
+import { ensureOrganization } from "@/lib/org";
 import { AppShell } from "./_components/app-shell";
 
 export default async function UygulamaLayout({
@@ -14,9 +15,13 @@ export default async function UygulamaLayout({
     redirect("/giris");
   }
 
-  const settings = await db.userSettings.findUnique({
-    where: { userId: session.user.id },
+  // İlk girişte org otomatik oluşur + eski user-bazlı veriler taşınır
+  const ctx = await ensureOrganization(session.user.id);
+
+  const org = await db.organization.findUnique({
+    where: { id: ctx.orgId },
     select: {
+      ad: true,
       modulFaturalar: true,
       modulHareketler: true,
       modulUrunler: true,
@@ -25,7 +30,7 @@ export default async function UygulamaLayout({
       modulEtiketler: true,
     },
   });
-  const moduller = readModuleFlags(settings);
+  const moduller = readModuleFlags(org);
 
   return (
     <AppShell
@@ -35,6 +40,11 @@ export default async function UygulamaLayout({
         image: session.user.image ?? null,
       }}
       moduller={moduller}
+      org={{
+        id: ctx.orgId,
+        ad: org?.ad ?? ctx.orgAd,
+        role: ctx.role,
+      }}
     >
       {children}
     </AppShell>

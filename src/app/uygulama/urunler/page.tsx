@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { getUserId } from "@/lib/auth-helpers";
+import { getOrgId } from "@/lib/auth-helpers";
 import { isModuleActive } from "@/lib/module-guard";
 import { ModuleClosed } from "@/components/ui/module-closed";
 import { UrunList } from "./urun-list";
@@ -16,11 +16,11 @@ export default async function UrunlerPage({
   if (!(await isModuleActive("urunler"))) {
     return <ModuleClosed modulAd="Ürünler / Stok" />;
   }
-  const userId = await getUserId();
+  const orgId = await getOrgId();
   const { q = "", kategori = "", durum = "" } = await searchParams;
 
   const where = {
-    userId,
+    organizationId: orgId,
     ...(kategori ? { kategori } : {}),
     ...(durum === "azalan"
       ? { stok: { lte: db.urun.fields.minStok } }
@@ -41,16 +41,13 @@ export default async function UrunlerPage({
   };
 
   const [items, kategoriler, stats, sonrakiKod] = await Promise.all([
+    db.urun.findMany({ where, orderBy: { ad: "asc" } }),
     db.urun.findMany({
-      where,
-      orderBy: { ad: "asc" },
-    }),
-    db.urun.findMany({
-      where: { userId, kategori: { not: null } },
+      where: { organizationId: orgId, kategori: { not: null } },
       select: { kategori: true },
       distinct: ["kategori"],
     }),
-    computeStats(userId),
+    computeStats(orgId),
     nextUrunKodu(),
   ]);
 
@@ -81,20 +78,20 @@ export default async function UrunlerPage({
   );
 }
 
-async function computeStats(userId: string) {
+async function computeStats(orgId: string) {
   const [toplamUrun, dusukStok, toplamDeger] = await Promise.all([
-    db.urun.count({ where: { userId, aktif: true } }),
+    db.urun.count({ where: { organizationId: orgId, aktif: true } }),
     db.$queryRaw<Array<{ count: bigint }>>`
       SELECT COUNT(*)::bigint as count
       FROM "Urun"
-      WHERE "userId" = ${userId}
+      WHERE "organizationId" = ${orgId}
         AND "aktif" = true
         AND "stok" <= "minStok"
     `,
     db.$queryRaw<Array<{ total: number }>>`
       SELECT COALESCE(SUM("stok" * "satisFiyati"), 0)::float8 as total
       FROM "Urun"
-      WHERE "userId" = ${userId} AND "aktif" = true
+      WHERE "organizationId" = ${orgId} AND "aktif" = true
     `,
   ]);
 

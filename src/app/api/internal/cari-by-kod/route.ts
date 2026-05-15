@@ -15,8 +15,14 @@ export async function GET(request: Request) {
   const kod = searchParams.get("kod");
   if (!kod) return NextResponse.json({ error: "kod required" }, { status: 400 });
 
+  const user = await db.user.findUnique({
+    where: { id: session.user.id },
+    select: { currentOrgId: true },
+  });
+  if (!user?.currentOrgId) return NextResponse.json(null);
+
   const cari = await db.cari.findFirst({
-    where: { userId: session.user.id, kod },
+    where: { organizationId: user.currentOrgId, kod },
     select: { id: true },
   });
   return NextResponse.json(cari);
