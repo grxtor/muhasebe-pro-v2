@@ -5,9 +5,12 @@
 @import "@heroui/styles";
 
 /* ============================================================
-   Muhasebe Pro — TAM MONOKROM palet
-   Sadece: saf gri ölçeği + yeşil (positive) + kırmızı (negative).
-   Hiçbir mavi/lacivert/indigo yok.
+   Muhasebe Pro — sade palet
+   • Yüzeyler / metin / border: SAF gri tonları (mavi tonu yok)
+   • Mavi: SADECE HeroUI buton accent'i için (kullanıcı isteği)
+   • Yeşil: pozitif (alacak/tahsil/başarı)
+   • Kırmızı: negatif (borç/sil/hata)
+   • Amber: uyarı
    ============================================================ */
 
 @theme inline {
@@ -29,28 +32,29 @@
 }
 
 /* ============================================================
-   LIGHT TEMA — saf gri ölçeği
+   LIGHT TEMA — saf gri + sidebar koyu + butonlar mavi
    ============================================================ */
 :root {
-  /* Yüzeyler */
+  /* Yüzeyler — saf gri */
   --app-bg: oklch(0.985 0 0);
   --surface: oklch(1 0 0);
   --surface-muted: oklch(0.96 0 0);
   --border: oklch(0.92 0 0);
   --border-strong: oklch(0.86 0 0);
 
-  /* Metin */
+  /* Metin — saf gri */
   --text: oklch(0.2 0 0);
   --text-muted: oklch(0.48 0 0);
   --text-soft: oklch(0.62 0 0);
 
-  /* Brand = SİYAH (light mode'da). Buton arkaplanı, vurgu için. */
+  /* Brand = kart vurguları için nötr (sidebar, KPI accent rengi).
+     Mavi BUTONLAR ayrı: HeroUI --accent kullanılır. */
   --brand: oklch(0.2 0 0);
   --brand-strong: oklch(0.12 0 0);
   --brand-soft: oklch(0.96 0 0);
   --brand-foreground: oklch(1 0 0);
 
-  /* Semantic — sadece yeşil ve kırmızı */
+  /* Semantic */
   --positive: oklch(0.55 0.14 160);
   --positive-soft: oklch(0.96 0.04 160);
   --negative: oklch(0.55 0.21 25);
@@ -58,7 +62,7 @@
   --warning: oklch(0.6 0.13 70);
   --warning-soft: oklch(0.96 0.05 70);
 
-  /* Sidebar — saf koyu gri */
+  /* Sidebar — light mode'da koyu (klasik split layout) */
   --sidebar-bg: oklch(0.18 0 0);
   --sidebar-bg-2: oklch(0.22 0 0);
   --sidebar-text: oklch(0.72 0 0);
@@ -66,37 +70,41 @@
   --sidebar-active-bg: oklch(0.98 0 0 / 0.08);
   --sidebar-active-bar: oklch(0.98 0 0);
 
-  /* HeroUI override — onların mavisi (--accent: oklch(0.62 0.195 253.83)) yerine SİYAH */
-  --accent: oklch(0.2 0 0);
-  --accent-foreground: oklch(1 0 0);
-  --focus: oklch(0.2 0 0);
+  /* HeroUI --accent KULLANICI İSTEĞİ: BUTONLAR İÇİN MAVİ KALSIN */
+  /* Bu HeroUI Button variant="primary"da görünür. */
+  --accent: oklch(0.62 0.18 254);
+  --accent-foreground: oklch(0.99 0 0);
+  --focus: var(--accent);
 
-  /* HeroUI success/danger/warning'i de bizim semantic'lerle eşle */
+  /* HeroUI semantic eşleştirme */
   --success: var(--positive);
   --danger: var(--negative);
 }
 
 /* ============================================================
-   DARK TEMA — saf koyu gri
+   DARK TEMA — sidebar SİYAH değil, yükseltilmiş koyu gri
    ============================================================ */
 .dark,
 [data-theme="dark"] {
-  --app-bg: oklch(0.15 0 0);
+  /* Yüzeyler — koyu gri ölçeği */
+  --app-bg: oklch(0.14 0 0);
   --surface: oklch(0.2 0 0);
   --surface-muted: oklch(0.24 0 0);
   --border: oklch(0.3 0 0);
   --border-strong: oklch(0.38 0 0);
 
+  /* Metin */
   --text: oklch(0.96 0 0);
   --text-muted: oklch(0.7 0 0);
   --text-soft: oklch(0.55 0 0);
 
-  /* Brand = BEYAZ (dark mode'da). Buton arkaplanı parlasın. */
+  /* Brand (kart vurguları) — beyaz tonlu */
   --brand: oklch(0.96 0 0);
   --brand-strong: oklch(1 0 0);
   --brand-soft: oklch(0.28 0 0);
   --brand-foreground: oklch(0.15 0 0);
 
+  /* Semantic — dark mode pastel ayarı */
   --positive: oklch(0.7 0.14 160);
   --positive-soft: oklch(0.28 0.06 160);
   --negative: oklch(0.7 0.18 25);
@@ -104,16 +112,20 @@
   --warning: oklch(0.75 0.13 70);
   --warning-soft: oklch(0.3 0.08 70);
 
-  --sidebar-bg: oklch(0.12 0 0);
-  --sidebar-bg-2: oklch(0.16 0 0);
-  --sidebar-text: oklch(0.7 0 0);
+  /* Sidebar dark mode — app-bg'den DAHA AÇIK (yükseltilmiş hissi).
+     Önceki: 0.12/0.16 (app-bg=0.15'ten koyuydu) → kara delik gibi duruyordu.
+     Yeni: 0.19/0.22 (surface seviyesi) → cards gibi yükseltilmiş. */
+  --sidebar-bg: oklch(0.19 0 0);
+  --sidebar-bg-2: oklch(0.22 0 0);
+  --sidebar-text: oklch(0.72 0 0);
   --sidebar-text-strong: oklch(0.98 0 0);
   --sidebar-active-bg: oklch(0.98 0 0 / 0.1);
   --sidebar-active-bar: oklch(0.98 0 0);
 
-  --accent: oklch(0.96 0 0);
+  /* Mavi accent dark mode'da biraz daha parlak (kontrast) */
+  --accent: oklch(0.7 0.18 254);
   --accent-foreground: oklch(0.15 0 0);
-  --focus: oklch(0.96 0 0);
+  --focus: var(--accent);
 
   --success: var(--positive);
   --danger: var(--negative);
@@ -135,12 +147,12 @@ body {
 }
 
 ::selection {
-  background: var(--text);
-  color: var(--surface);
+  background: var(--accent);
+  color: var(--accent-foreground);
 }
 
 :focus-visible {
-  outline: 2px solid var(--text);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
   border-radius: 4px;
 }
