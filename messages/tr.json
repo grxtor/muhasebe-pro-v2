@@ -1,0 +1,73 @@
+{
+  "marka": {
+    "ad": "Muhasebe Pro",
+    "slogan": "Modern, hızlı, çok kullanıcılı muhasebe yönetimi"
+  },
+  "nav": {
+    "anasayfa": "Anasayfa",
+    "alacaklar": "Alacaklar",
+    "borclar": "Borçlar",
+    "profiller": "Profiller",
+    "faturalar": "Faturalar",
+    "hareketler": "Hareketler",
+    "ayarlar": "Ayarlar",
+    "cikis": "Çıkış",
+    "girisYap": "Giriş Yap",
+    "kayitOl": "Kayıt Ol"
+  },
+  "ortak": {
+    "kaydet": "Kaydet",
+    "iptal": "İptal",
+    "sil": "Sil",
+    "duzenle": "Düzenle",
+    "yeni": "Yeni",
+    "ara": "Ara",
+    "filtreler": "Filtreler",
+    "tumunuTemizle": "Tümünü temizle",
+    "yukleniyor": "Yükleniyor…",
+    "kayitBulunamadi": "Kayıt bulunamadı",
+    "evet": "Evet",
+    "hayir": "Hayır",
+    "zorunluAlan": "Bu alan zorunludur"
+  },
+  "auth": {
+    "giris": {
+      "baslik": "Hesabınıza giriş yapın",
+      "altBaslik": "E-posta ve şifrenizle veya Google ile devam edin",
+      "email": "E-posta",
+      "sifre": "Şifre",
+      "girisYap": "Giriş Yap",
+      "googleIle": "Google ile devam et",
+      "hesabinYok": "Hesabın yok mu?",
+      "kayitOl": "Kayıt ol",
+      "hataliBilgi": "E-posta veya şifre hatalı"
+    },
+    "kayit": {
+      "baslik": "Yeni hesap oluştur",
+      "altBaslik": "Birkaç bilgiyle başlayın",
+      "adSoyad": "Ad Soyad",
+      "sirketAdi": "Şirket adı (opsiyonel)",
+      "email": "E-posta",
+      "sifre": "Şifre",
+      "sifreTekrar": "Şifre tekrar",
+      "kayitOl": "Hesap oluştur",
+      "girisYap": "Zaten hesabın var mı? Giriş yap",
+      "kullaniminiKabulEt": "Kullanım şartlarını kabul ediyorum"
+    }
+  },
+  "anasayfa": {
+    "baslik": "Anasayfa",
+    "alacaklar": "Alacaklarımız",
+    "alacaklarAlt": "Tahsil edilecek",
+    "borclar": "Borçlarımız",
+    "borclarAlt": "Ödenecek",
+    "netPozisyon": "Net Pozisyon",
+    "alacakli": "Alacaklı pozisyondasınız",
+    "borclu": "Borçlu pozisyondasınız",
+    "yaklaSanTahsilatlar": "Yaklaşan Tahsilatlar",
+    "yaklasanOdemeler": "Yaklaşan Ödemeler",
+    "bekleyenTahsilatYok": "Bekleyen tahsilat yok",
+    "bekleyenOdemeYok": "Bekleyen ödeme yok",
+    "vadesiGecen": "{sayi} adet vadesi geçti"
+  }
+}

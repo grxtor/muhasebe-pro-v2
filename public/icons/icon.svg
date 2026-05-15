@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#4f46e5"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+  <g fill="#ffffff" transform="translate(0 8)">
+    <!-- ₺ Turkish Lira symbol — yalın geometri -->
+    <path d="M180 120 v272 h32 V272 l128 -40 v-32 l-128 40 v-40 l128 -40 v-32 l-128 40 V120 z" />
+    <rect x="180" y="200" width="160" height="14" rx="2" opacity="0.0"/>
+  </g>
+</svg>

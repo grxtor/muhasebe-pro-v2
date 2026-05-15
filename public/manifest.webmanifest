@@ -1,0 +1,43 @@
+{
+  "name": "Muhasebe Pro",
+  "short_name": "Muhasebe",
+  "description": "Çok kullanıcılı, modern muhasebe uygulaması — faturalar, alacaklar, borçlar tek yerde.",
+  "lang": "tr-TR",
+  "dir": "ltr",
+  "start_url": "/uygulama",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "orientation": "any",
+  "background_color": "#ffffff",
+  "theme_color": "#4f46e5",
+  "categories": ["business", "finance", "productivity"],
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Yeni Fatura",
+      "short_name": "Fatura",
+      "description": "Yeni fatura oluştur",
+      "url": "/uygulama/faturalar?yeni=1"
+    },
+    {
+      "name": "Yeni Alacak",
+      "short_name": "Alacak",
+      "description": "Yeni alacak ekle",
+      "url": "/uygulama/alacaklar?yeni=1"
+    },
+    {
+      "name": "Profiller",
+      "short_name": "Profiller",
+      "description": "Müşteri/tedarikçi listesi",
+      "url": "/uygulama/profiller"
+    }
+  ]
+}

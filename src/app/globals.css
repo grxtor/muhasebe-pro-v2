@@ -1,26 +1,128 @@
+/* Tailwind CSS v4 — önce gelmek zorunda */
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* HeroUI v3 stilleri — Tailwind'den sonra */
+@import "@heroui/styles";
+
+/* ============================================================
+   Muhasebe Pro — özel design tokens
+   ============================================================ */
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+  /* Yarıçap ölçeği */
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+
+  /* Gölge ölçeği */
+  --shadow-soft: 0 1px 2px oklch(0.2 0.02 250 / 0.04),
+    0 1px 3px oklch(0.2 0.02 250 / 0.06);
+  --shadow-pop: 0 8px 24px oklch(0.2 0.02 250 / 0.08),
+    0 2px 6px oklch(0.2 0.02 250 / 0.04);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ============================================================
+   Light tema — Muhasebe Pro markalama
+   ============================================================ */
+:root {
+  /* Yüzeyler */
+  --app-bg: oklch(0.984 0.003 247);
+  --surface: oklch(1 0 0);
+  --surface-muted: oklch(0.968 0.005 247);
+  --border: oklch(0.92 0.008 247);
+  --border-strong: oklch(0.88 0.012 247);
+
+  /* Metin */
+  --text: oklch(0.22 0.03 264);
+  --text-muted: oklch(0.5 0.02 257);
+  --text-soft: oklch(0.65 0.015 257);
+
+  /* Marka */
+  --brand: oklch(0.55 0.21 270);
+  --brand-soft: oklch(0.96 0.025 270);
+
+  /* Semantik */
+  --positive: oklch(0.55 0.14 160);
+  --positive-soft: oklch(0.96 0.04 160);
+  --negative: oklch(0.55 0.21 25);
+  --negative-soft: oklch(0.96 0.04 25);
+  --warning: oklch(0.7 0.16 75);
+  --warning-soft: oklch(0.96 0.05 75);
+
+  /* Sidebar (her temada koyu kalır) */
+  --sidebar-bg: oklch(0.22 0.03 264);
+  --sidebar-bg-2: oklch(0.28 0.04 264);
+  --sidebar-text: oklch(0.78 0.015 257);
+  --sidebar-text-strong: oklch(0.98 0.003 247);
+  --sidebar-active: oklch(0.68 0.19 270);
+}
+
+/* ============================================================
+   Dark tema
+   ============================================================ */
+.dark,
+[data-theme="dark"] {
+  --app-bg: oklch(0.16 0.02 264);
+  --surface: oklch(0.22 0.025 264);
+  --surface-muted: oklch(0.26 0.025 264);
+  --border: oklch(0.32 0.025 264);
+  --border-strong: oklch(0.4 0.03 264);
+
+  --text: oklch(0.97 0.005 247);
+  --text-muted: oklch(0.72 0.015 257);
+  --text-soft: oklch(0.55 0.02 257);
+
+  --brand: oklch(0.7 0.18 270);
+  --brand-soft: oklch(0.3 0.08 270);
+
+  --positive: oklch(0.7 0.14 160);
+  --positive-soft: oklch(0.3 0.06 160);
+  --negative: oklch(0.7 0.18 25);
+  --negative-soft: oklch(0.32 0.08 25);
+  --warning: oklch(0.78 0.14 75);
+  --warning-soft: oklch(0.32 0.08 75);
+
+  --sidebar-bg: oklch(0.13 0.02 264);
+  --sidebar-bg-2: oklch(0.17 0.02 264);
+}
+
+/* ============================================================
+   Temel sıfırlama / gövde
+   ============================================================ */
+html,
+body {
+  background: var(--app-bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+}
+
+/* Selection */
+::selection {
+  background: var(--brand);
+  color: white;
+}
+
+/* Focus halkası — accessibility */
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Tablolarda monospaced rakamlar (muhasebe için kritik) */
+.tabular-nums,
+table {
+  font-variant-numeric: tabular-nums;
 }

@@ -1,0 +1,269 @@
+// Muhasebe Pro v2 — Prisma şeması
+// Eski Blazor sürümündeki Entities.cs bire bir buraya çevrildi.
+// Auth.js v5 + Prisma adapter tabloları (User/Account/Session/VerificationToken) dahildir.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = []
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+//  Auth.js v5 — Prisma Adapter modelleri
+// ============================================================
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  password      String? // Email/şifre girişi için (hash'lenmiş — bcrypt)
+
+  // Muhasebe Pro özel alanları
+  adSoyad     String?
+  sirketAdi   String?
+  kayitTarihi DateTime @default(now())
+
+  accounts Account[]
+  sessions Session[]
+
+  // Sahip olduğu veriler — kaskat silme
+  cariler   Cari[]
+  hareketler Hareket[]
+  odemeNotlari OdemeNotu[]
+  faturalar Fatura[]
+  dekontlar Dekont[]
+
+  @@index([email])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ============================================================
+//  Domain — Muhasebe modelleri
+// ============================================================
+
+enum CariTipi {
+  Musteri
+  Tedarikci
+  HerIkisi
+}
+
+enum OdemeYonu {
+  Alacak
+  Borc
+}
+
+enum OdemeDurumu {
+  Beklemede
+  Odendi
+  KismiOdendi
+  Iptal
+}
+
+enum FaturaYonu {
+  Gonderilen
+  Gelen
+}
+
+enum FaturaDurumu {
+  Beklemede
+  Odendi
+  KismiOdendi
+  Iptal
+}
+
+enum HareketTipi {
+  Borc
+  Alacak
+}
+
+/// Müşteri / Tedarikçi profili. Eski "Cari" tablosu.
+model Cari {
+  id     Int    @id @default(autoincrement())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  kod   String
+  unvan String
+  tip   CariTipi @default(Musteri)
+
+  vergiNo       String?
+  vergiDairesi  String?
+  tcKimlikNo    String?
+  telefon       String?
+  email         String?
+  adres         String?
+  sehir         String?
+  acilisTarihi  DateTime @default(now()) @db.Date
+  acilisBakiyesi Decimal  @default(0) @db.Decimal(18, 2)
+  notlar        String?
+  aktif         Boolean  @default(true)
+
+  olusturmaTarihi DateTime @default(now())
+  guncellemeTarihi DateTime @updatedAt
+
+  hareketler   Hareket[]
+  odemeNotlari OdemeNotu[]
+  faturalar    Fatura[]
+
+  @@unique([userId, kod])
+  @@index([userId])
+  @@index([userId, aktif])
+  @@index([userId, unvan])
+}
+
+/// Para hareketi — tahsilat veya ödeme kaydı.
+model Hareket {
+  id     Int    @id @default(autoincrement())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  cariId Int
+  cari   Cari @relation(fields: [cariId], references: [id], onDelete: Cascade)
+
+  tarih       DateTime    @default(now()) @db.Date
+  tip         HareketTipi
+  tutar       Decimal     @db.Decimal(18, 2)
+  paraBirimi  String      @default("TRY") @db.VarChar(3)
+  aciklama    String?
+  belgeNo     String?
+  vadeTarihi  DateTime?   @db.Date
+
+  olusturmaTarihi DateTime @default(now())
+
+  @@index([userId, tarih(sort: Desc)])
+  @@index([cariId])
+}
+
+/// Alacak/Borç notu — bekleyen ödeme takibi.
+model OdemeNotu {
+  id     Int    @id @default(autoincrement())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  cariId Int
+  cari   Cari @relation(fields: [cariId], references: [id], onDelete: Cascade)
+
+  yon         OdemeYonu   @default(Alacak)
+  baslik      String
+  aciklama    String?
+  tutar       Decimal     @db.Decimal(18, 2)
+  odenenTutar Decimal     @default(0) @db.Decimal(18, 2)
+  paraBirimi  String      @default("TRY") @db.VarChar(3)
+  vadeTarihi  DateTime    @db.Date
+  durum       OdemeDurumu @default(Beklemede)
+  odemeTarihi DateTime?
+
+  faturaId Int? @unique
+  fatura   Fatura? @relation(fields: [faturaId], references: [id], onDelete: SetNull)
+
+  olusturmaTarihi  DateTime @default(now())
+  guncellemeTarihi DateTime @updatedAt
+
+  @@index([userId, yon, durum])
+  @@index([userId, vadeTarihi])
+  @@index([cariId])
+}
+
+/// Gönderilen veya gelen fatura.
+model Fatura {
+  id     Int    @id @default(autoincrement())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  cariId Int
+  cari   Cari @relation(fields: [cariId], references: [id], onDelete: Restrict)
+
+  yon          FaturaYonu   @default(Gonderilen)
+  faturaNo     String
+  tarih        DateTime     @default(now()) @db.Date
+  vadeTarihi   DateTime?    @db.Date
+  isAciklamasi String
+  tutar        Decimal      @db.Decimal(18, 2)
+  kdvOrani     Decimal      @default(20) @db.Decimal(5, 2)
+  kdvTutari    Decimal      @default(0) @db.Decimal(18, 2)
+  toplamTutar  Decimal      @default(0) @db.Decimal(18, 2)
+  odenenTutar  Decimal      @default(0) @db.Decimal(18, 2)
+  paraBirimi   String       @default("TRY") @db.VarChar(3)
+  durum        FaturaDurumu @default(Beklemede)
+  notlar       String?
+
+  odemeNotu OdemeNotu?
+
+  olusturmaTarihi  DateTime @default(now())
+  guncellemeTarihi DateTime @updatedAt
+
+  @@unique([userId, faturaNo])
+  @@index([userId, tarih(sort: Desc)])
+  @@index([userId, yon, durum])
+  @@index([cariId])
+}
+
+/// Dekont/belge — fatura/alacak/borç/hareket altına eklenen dosya.
+model Dekont {
+  id     Int    @id @default(autoincrement())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  cariId      Int?
+  odemeNotuId Int?
+  faturaId    Int?
+  hareketId   Int?
+
+  dosyaAdi  String
+  depoYolu  String
+  boyut     Int
+  mimeTip   String?
+  aciklama  String?
+
+  eklemeTarihi DateTime @default(now())
+
+  @@index([userId])
+  @@index([cariId])
+  @@index([odemeNotuId])
+  @@index([faturaId])
+  @@index([hareketId])
+}
