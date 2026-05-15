@@ -1,22 +1,16 @@
 import type { NextAuthConfig } from "next-auth";
-import Google from "next-auth/providers/google";
 
 /**
  * Edge-compatible Auth.js yapılandırması.
  *
- * Bu dosya middleware'de de kullanılır, bu yüzden Prisma/bcryptjs gibi
+ * Bu dosya proxy.ts'de de kullanılır, bu yüzden Prisma/bcryptjs gibi
  * Node-only kütüphaneler buraya GİREMEZ. Credentials provider'ı `auth.ts`
  * içinde tanımlanır.
+ *
+ * Şimdilik sadece email/şifre. Google OAuth ileride eklenecek.
  */
 export default {
-  providers: [
-    Google({
-      clientId: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      // Aynı email ile hem Google hem email/şifre kullanan kişiler için
-      allowDangerousEmailAccountLinking: true,
-    }),
-  ],
+  providers: [],
   pages: {
     signIn: "/giris",
     error: "/giris",

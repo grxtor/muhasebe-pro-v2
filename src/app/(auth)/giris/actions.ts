@@ -38,7 +38,3 @@ export async function loginAction(
     throw err;
   }
 }
-
-export async function googleLoginAction(): Promise<void> {
-  await signIn("google", { redirectTo: "/uygulama" });
-}

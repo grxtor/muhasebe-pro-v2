@@ -13,7 +13,7 @@ import { Toaster } from "sonner";
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <NextThemesProvider
-      attribute={["class", "data-theme"]}
+      attribute="class"
       defaultTheme="system"
       enableSystem
       disableTransitionOnChange
@@ -23,9 +23,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         position="top-right"
         richColors
         closeButton
-        toastOptions={{
-          duration: 4000,
-        }}
+        toastOptions={{ duration: 4000 }}
       />
     </NextThemesProvider>
   );
