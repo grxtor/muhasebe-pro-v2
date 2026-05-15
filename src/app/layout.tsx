@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { Providers } from "./providers";
+import { themeBootstrapScript } from "@/lib/theme";
 import "./globals.css";
 
 const inter = Inter({
@@ -51,6 +52,13 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${inter.variable} h-full`}
     >
+      <head>
+        {/* Tema flash önleyici — hydration'dan ÖNCE .dark class'ını ekler */}
+        <script
+          // eslint-disable-next-line react/no-danger
+          dangerouslySetInnerHTML={{ __html: themeBootstrapScript }}
+        />
+      </head>
       <body className="min-h-dvh font-sans antialiased">
         <Providers>{children}</Providers>
       </body>

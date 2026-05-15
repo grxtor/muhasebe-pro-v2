@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { useTheme } from "next-themes";
+import { useTheme } from "@/lib/theme";
 import {
   Home,
   TrendingDown,
@@ -37,7 +37,7 @@ const navItems = [
 export function AppShell({ user, children }: AppShellProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { theme, setTheme, resolvedTheme } = useTheme();
+  const { resolvedTheme, toggleTheme, mounted } = useTheme();
 
   function isActive(href: string, exact?: boolean) {
     if (exact) return pathname === href;
@@ -162,17 +162,18 @@ export function AppShell({ user, children }: AppShellProps) {
               variant="ghost"
               size="sm"
               isIconOnly
-              onPress={() =>
-                setTheme(
-                  (resolvedTheme ?? theme) === "dark" ? "light" : "dark",
-                )
-              }
+              onPress={toggleTheme}
               aria-label="Temayı değiştir"
             >
-              {(resolvedTheme ?? theme) === "dark" ? (
-                <Sun size={16} />
+              {/* mounted false iken iki ikonu da göstermiyoruz — hydration mismatch önler */}
+              {mounted ? (
+                resolvedTheme === "dark" ? (
+                  <Sun size={16} />
+                ) : (
+                  <Moon size={16} />
+                )
               ) : (
-                <Moon size={16} />
+                <span aria-hidden className="size-4" />
               )}
             </Button>
           </div>
