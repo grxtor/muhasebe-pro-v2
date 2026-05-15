@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { Button } from "@heroui/react";
 import { Sun, Moon, Monitor, Maximize, Minimize } from "lucide-react";
 import { toast } from "sonner";
@@ -16,8 +16,16 @@ interface Props {
 }
 
 export function GorunumForm({ initial }: Props) {
-  const { theme, setTheme } = useTheme();
+  const { theme: contextTheme, setTheme } = useTheme();
   const [pending, start] = useTransition();
+
+  // Lokal state — anında görsel feedback için
+  const [selectedTema, setSelectedTema] = useState<Theme>(
+    (initial.tema as Theme) ?? "system",
+  );
+  const [selectedYogunluk, setSelectedYogunluk] = useState<string>(
+    initial.yogunluk ?? "comfortable",
+  );
 
   // Sayfa açıldığında DB'deki tercihi local theme provider'a senkronize et
   useEffect(() => {
@@ -25,46 +33,55 @@ export function GorunumForm({ initial }: Props) {
       (initial.tema === "light" ||
         initial.tema === "dark" ||
         initial.tema === "system") &&
-      theme !== initial.tema
+      contextTheme !== initial.tema
     ) {
       setTheme(initial.tema as Theme);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function submit(formData: FormData) {
-    const r = await updateGorunum(formData);
-    if (r.ok) {
-      const t = formData.get("tema") as Theme;
-      setTheme(t);
-      toast.success("Görünüm tercihleri kaydedildi");
-    } else {
-      toast.error(r.error);
-    }
+  // Tema seçimi anında uygula (kullanıcı seçer seçmez canlı önizleme)
+  function onTemaChange(t: Theme) {
+    setSelectedTema(t);
+    setTheme(t);
+  }
+
+  async function submit() {
+    start(async () => {
+      const fd = new FormData();
+      fd.set("tema", selectedTema);
+      fd.set("yogunluk", selectedYogunluk);
+      const r = await updateGorunum(fd);
+      if (r.ok) toast.success("Görünüm tercihleri kaydedildi");
+      else toast.error(r.error);
+    });
   }
 
   return (
-    <form action={(fd) => start(() => void submit(fd))} className="space-y-6">
+    <div className="space-y-6">
       <SectionCard
         title="Tema"
-        description="Açık, koyu veya sistem temasını otomatik takip et"
+        description="Açık, koyu veya sistem temasını otomatik takip et — seçer seçmez canlı önizleme"
       >
         <div className="grid grid-cols-3 gap-3">
           <ThemeCard
             value="light"
-            current={theme}
+            current={selectedTema}
+            onSelect={onTemaChange}
             label="Açık"
             icon={<Sun size={20} />}
           />
           <ThemeCard
             value="dark"
-            current={theme}
+            current={selectedTema}
+            onSelect={onTemaChange}
             label="Koyu"
             icon={<Moon size={20} />}
           />
           <ThemeCard
             value="system"
-            current={theme}
+            current={selectedTema}
+            onSelect={onTemaChange}
             label="Sistem"
             icon={<Monitor size={20} />}
           />
@@ -78,14 +95,16 @@ export function GorunumForm({ initial }: Props) {
         <div className="grid grid-cols-2 gap-3">
           <DensityCard
             value="comfortable"
-            current={initial.yogunluk}
+            current={selectedYogunluk}
+            onSelect={setSelectedYogunluk}
             label="Rahat"
             description="Standart boşluk"
             icon={<Maximize size={18} />}
           />
           <DensityCard
             value="compact"
-            current={initial.yogunluk}
+            current={selectedYogunluk}
+            onSelect={setSelectedYogunluk}
             label="Sıkışık"
             description="Daha fazla satır görünür"
             icon={<Minimize size={18} />}
@@ -94,87 +113,102 @@ export function GorunumForm({ initial }: Props) {
       </SectionCard>
 
       <div className="flex justify-end">
-        <Button type="submit" variant="primary" size="md" isDisabled={pending}>
+        <Button
+          variant="primary"
+          size="md"
+          onPress={submit}
+          isDisabled={pending}
+        >
           {pending ? "Kaydediliyor…" : "Kaydet"}
         </Button>
       </div>
-    </form>
+    </div>
   );
 }
 
 function ThemeCard({
   value,
   current,
+  onSelect,
   label,
   icon,
 }: {
-  value: "light" | "dark" | "system";
-  current: string;
+  value: Theme;
+  current: Theme;
+  onSelect: (v: Theme) => void;
   label: string;
   icon: React.ReactNode;
 }) {
   const checked = current === value;
   return (
-    <label
-      className="relative flex cursor-pointer flex-col items-center gap-2 rounded-lg border p-4 transition-colors"
+    <button
+      type="button"
+      onClick={() => onSelect(value)}
+      aria-pressed={checked}
+      className="relative flex cursor-pointer flex-col items-center gap-2 rounded-lg border p-4 transition-all"
       style={{
         background: checked ? "var(--surface-muted)" : "var(--surface)",
         borderColor: checked ? "var(--text)" : "var(--border-strong)",
+        borderWidth: checked ? "2px" : "1px",
+        padding: checked ? "calc(1rem - 1px)" : "1rem",
       }}
     >
-      <input
-        type="radio"
-        name="tema"
-        value={value}
-        defaultChecked={checked}
-        className="sr-only"
-      />
       <span style={{ color: checked ? "var(--text)" : "var(--text-muted)" }}>
         {icon}
       </span>
-      <span className="text-sm font-medium">{label}</span>
-    </label>
+      <span
+        className="text-sm font-medium"
+        style={{ color: checked ? "var(--text)" : "var(--text-muted)" }}
+      >
+        {label}
+      </span>
+    </button>
   );
 }
 
 function DensityCard({
   value,
   current,
+  onSelect,
   label,
   description,
   icon,
 }: {
-  value: "comfortable" | "compact";
+  value: string;
   current: string;
+  onSelect: (v: string) => void;
   label: string;
   description: string;
   icon: React.ReactNode;
 }) {
   const checked = current === value;
   return (
-    <label
-      className="relative flex cursor-pointer items-center gap-3 rounded-lg border p-4 transition-colors"
+    <button
+      type="button"
+      onClick={() => onSelect(value)}
+      aria-pressed={checked}
+      className="relative flex cursor-pointer items-center gap-3 rounded-lg border p-4 text-left transition-all"
       style={{
         background: checked ? "var(--surface-muted)" : "var(--surface)",
         borderColor: checked ? "var(--text)" : "var(--border-strong)",
+        borderWidth: checked ? "2px" : "1px",
+        padding: checked ? "calc(1rem - 1px)" : "1rem",
       }}
     >
-      <input
-        type="radio"
-        name="yogunluk"
-        value={value}
-        defaultChecked={checked}
-        className="sr-only"
-      />
       <span style={{ color: checked ? "var(--text)" : "var(--text-muted)" }}>
         {icon}
       </span>
       <div>
-        <div className="text-sm font-medium">{label}</div>
+        <div
+          className="text-sm font-medium"
+          style={{ color: checked ? "var(--text)" : "var(--text-muted)" }}
+        >
+          {label}
+        </div>
         <div className="text-xs" style={{ color: "var(--text-muted)" }}>
           {description}
         </div>
       </div>
-    </label>
+    </button>
   );
 }
