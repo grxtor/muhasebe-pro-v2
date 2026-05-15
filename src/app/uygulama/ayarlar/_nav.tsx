@@ -9,11 +9,13 @@ import {
   Bell,
   Tags,
   History,
+  ToggleRight,
 } from "lucide-react";
 
 const items = [
   { href: "/uygulama/ayarlar", label: "Profil", icon: UserIcon, exact: true },
   { href: "/uygulama/ayarlar/sirket", label: "Şirket Bilgileri", icon: Building2 },
+  { href: "/uygulama/ayarlar/moduller", label: "Modüller", icon: ToggleRight },
   { href: "/uygulama/ayarlar/gorunum", label: "Görünüm", icon: Palette },
   { href: "/uygulama/ayarlar/bildirim", label: "Bildirimler", icon: Bell },
   { href: "/uygulama/ayarlar/etiketler", label: "Etiketler", icon: Tags },

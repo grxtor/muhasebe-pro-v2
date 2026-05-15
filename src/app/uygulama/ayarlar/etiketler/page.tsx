@@ -1,11 +1,16 @@
 import { db } from "@/lib/db";
 import { getUserId } from "@/lib/auth-helpers";
+import { isModuleActive } from "@/lib/module-guard";
+import { ModuleClosed } from "@/components/ui/module-closed";
 import { EtiketlerList } from "./etiketler-list";
 
 export const metadata = { title: "Etiketler" };
 export const dynamic = "force-dynamic";
 
 export default async function EtiketlerPage() {
+  if (!(await isModuleActive("etiketler"))) {
+    return <ModuleClosed modulAd="Etiketler" />;
+  }
   const userId = await getUserId();
   const tags = await db.tag.findMany({
     where: { userId },

@@ -1,11 +1,16 @@
 import { db } from "@/lib/db";
 import { getUserId } from "@/lib/auth-helpers";
+import { isModuleActive } from "@/lib/module-guard";
+import { ModuleClosed } from "@/components/ui/module-closed";
 import { TekrarlayanList } from "./tekrarlayan-list";
 
 export const metadata = { title: "Tekrarlayan Kayıtlar" };
 export const dynamic = "force-dynamic";
 
 export default async function TekrarlayanlarPage() {
+  if (!(await isModuleActive("tekrarlayanlar"))) {
+    return <ModuleClosed modulAd="Tekrarlayan Kayıtlar" />;
+  }
   const userId = await getUserId();
   const [items, cariler] = await Promise.all([
     db.tekrarlayanKayit.findMany({

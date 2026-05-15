@@ -1,5 +1,7 @@
 import { db } from "@/lib/db";
 import { getUserId } from "@/lib/auth-helpers";
+import { isModuleActive } from "@/lib/module-guard";
+import { ModuleClosed } from "@/components/ui/module-closed";
 import { HareketTipi } from "@/lib/enums";
 import { HareketList } from "./hareket-list";
 
@@ -11,6 +13,9 @@ export default async function HareketlerPage({
 }: {
   searchParams: Promise<{ q?: string; tip?: string }>;
 }) {
+  if (!(await isModuleActive("hareketler"))) {
+    return <ModuleClosed modulAd="Hareketler" />;
+  }
   const userId = await getUserId();
   const { q = "", tip = "" } = await searchParams;
 

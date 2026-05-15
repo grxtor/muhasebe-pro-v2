@@ -1,5 +1,7 @@
 import { db } from "@/lib/db";
 import { getUserId } from "@/lib/auth-helpers";
+import { isModuleActive } from "@/lib/module-guard";
+import { ModuleClosed } from "@/components/ui/module-closed";
 import { HatirlaticiList } from "./hatirlatici-list";
 
 export const metadata = { title: "Hatırlatıcılar" };
@@ -10,6 +12,9 @@ export default async function HatirlaticilarPage({
 }: {
   searchParams: Promise<{ tab?: string }>;
 }) {
+  if (!(await isModuleActive("hatirlaticilar"))) {
+    return <ModuleClosed modulAd="Hatırlatıcılar" />;
+  }
   const userId = await getUserId();
   const { tab = "acik" } = await searchParams;
 

@@ -1,5 +1,7 @@
 import { db } from "@/lib/db";
 import { getUserId } from "@/lib/auth-helpers";
+import { isModuleActive } from "@/lib/module-guard";
+import { ModuleClosed } from "@/components/ui/module-closed";
 import { UrunList } from "./urun-list";
 import { nextUrunKodu } from "./actions";
 
@@ -11,6 +13,9 @@ export default async function UrunlerPage({
 }: {
   searchParams: Promise<{ q?: string; kategori?: string; durum?: string }>;
 }) {
+  if (!(await isModuleActive("urunler"))) {
+    return <ModuleClosed modulAd="Ürünler / Stok" />;
+  }
   const userId = await getUserId();
   const { q = "", kategori = "", durum = "" } = await searchParams;
 

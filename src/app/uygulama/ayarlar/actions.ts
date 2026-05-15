@@ -227,6 +227,63 @@ const bildirimSchema = z.object({
   defaultVadeGun: z.coerce.number().int().min(0).max(365).default(30),
 });
 
+/* ============================================================
+   MODÜL TOGGLE
+   ============================================================ */
+
+const modulSchema = z.object({
+  modulFaturalar: z.coerce.boolean().default(false),
+  modulHareketler: z.coerce.boolean().default(false),
+  modulUrunler: z.coerce.boolean().default(false),
+  modulTekrarlayanlar: z.coerce.boolean().default(false),
+  modulHatirlaticilar: z.coerce.boolean().default(false),
+  modulEtiketler: z.coerce.boolean().default(false),
+});
+
+export async function updateModuller(
+  formData: FormData,
+): Promise<ActionResult> {
+  const userId = await getUserId();
+  const o: Record<string, unknown> = {};
+  for (const key of [
+    "modulFaturalar",
+    "modulHareketler",
+    "modulUrunler",
+    "modulTekrarlayanlar",
+    "modulHatirlaticilar",
+    "modulEtiketler",
+  ]) {
+    o[key] = formData.has(key);
+  }
+
+  const parsed = modulSchema.safeParse(o);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Geçersiz" };
+  }
+
+  await db.userSettings.upsert({
+    where: { userId },
+    create: { userId, ...parsed.data },
+    update: parsed.data,
+  });
+
+  const aktif = Object.entries(parsed.data)
+    .filter(([, v]) => v)
+    .map(([k]) => k.replace("modul", ""))
+    .join(", ");
+
+  await logAction({
+    userId,
+    islem: "update",
+    entity: "Settings",
+    entityId: "moduller",
+    ozet: `Modül tercihleri güncellendi: ${aktif || "(hepsi kapalı)"}`,
+  });
+
+  revalidatePath("/uygulama", "layout");
+  return { ok: true };
+}
+
 export async function updateBildirim(
   formData: FormData,
 ): Promise<ActionResult> {

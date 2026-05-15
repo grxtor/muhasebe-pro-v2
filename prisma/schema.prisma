@@ -300,6 +300,14 @@ model UserSettings {
   defaultKdvOrani    Decimal @default(20) @db.Decimal(5, 2)
   defaultParaBirimi  String  @default("TRY") @db.VarChar(3)
   defaultVadeGun     Int     @default(30)
+  // Modül toggle'ları — her kullanıcı kendi setup'ında istediği modülleri açar/kapatır.
+  // Çekirdek modüller (Alacaklar/Borçlar/Profiller) toggle'lı değil — her zaman açık.
+  modulFaturalar      Boolean @default(true)
+  modulHareketler     Boolean @default(true)
+  modulUrunler        Boolean @default(false) // Service business default kapalı
+  modulTekrarlayanlar Boolean @default(true)
+  modulHatirlaticilar Boolean @default(true)
+  modulEtiketler      Boolean @default(true)
 
   guncellemeTarihi DateTime @updatedAt
 }

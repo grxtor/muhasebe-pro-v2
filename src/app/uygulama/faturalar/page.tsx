@@ -1,5 +1,7 @@
 import { db } from "@/lib/db";
 import { getUserId } from "@/lib/auth-helpers";
+import { isModuleActive } from "@/lib/module-guard";
+import { ModuleClosed } from "@/components/ui/module-closed";
 import { FaturaYonu, FaturaDurumu } from "@/lib/enums";
 import { FaturaList } from "./fatura-list";
 import { nextFaturaNo } from "./actions";
@@ -12,6 +14,9 @@ export default async function FaturalarPage({
 }: {
   searchParams: Promise<{ q?: string; yon?: string; durum?: string }>;
 }) {
+  if (!(await isModuleActive("faturalar"))) {
+    return <ModuleClosed modulAd="Faturalar" />;
+  }
   const userId = await getUserId();
   const { q = "", yon = "", durum = "" } = await searchParams;
 

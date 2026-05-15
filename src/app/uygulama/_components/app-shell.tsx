@@ -24,8 +24,11 @@ import {
 } from "lucide-react";
 import { Button } from "@heroui/react";
 
+import type { ModuleFlags } from "@/lib/modules";
+
 interface AppShellProps {
   user: { name: string; email: string; image: string | null };
+  moduller: ModuleFlags;
   children: React.ReactNode;
 }
 
@@ -41,46 +44,80 @@ interface NavGroup {
   items: NavItem[];
 }
 
-const navGroups: NavGroup[] = [
-  {
-    items: [
-      { href: "/uygulama", label: "Anasayfa", icon: Home, exact: true },
-    ],
-  },
-  {
-    label: "Muhasebe",
-    items: [
-      { href: "/uygulama/alacaklar", label: "Alacaklar", icon: TrendingDown },
-      { href: "/uygulama/borclar", label: "Borçlar", icon: TrendingUp },
-      { href: "/uygulama/faturalar", label: "Faturalar", icon: Receipt },
-      { href: "/uygulama/hareketler", label: "Hareketler", icon: ListOrdered },
-    ],
-  },
-  {
-    label: "Kayıtlar",
-    items: [
-      { href: "/uygulama/profiller", label: "Profiller", icon: Users },
-      { href: "/uygulama/urunler", label: "Ürünler / Stok", icon: Package },
-      {
-        href: "/uygulama/tekrarlayanlar",
-        label: "Tekrarlayan Kayıtlar",
-        icon: Repeat,
-      },
-    ],
-  },
-  {
-    label: "Kişisel",
-    items: [
-      { href: "/uygulama/hatirlaticilar", label: "Hatırlatıcılar", icon: Bell },
-      { href: "/uygulama/ayarlar", label: "Ayarlar", icon: Settings },
-    ],
-  },
-];
+/**
+ * Aktif modüllere göre nav grupları üretir.
+ * Çekirdek (Anasayfa/Alacaklar/Borçlar/Profiller/Ayarlar) her zaman gelir.
+ */
+function buildNavGroups(moduller: ModuleFlags): NavGroup[] {
+  const muhasebe: NavItem[] = [
+    { href: "/uygulama/alacaklar", label: "Alacaklar", icon: TrendingDown },
+    { href: "/uygulama/borclar", label: "Borçlar", icon: TrendingUp },
+  ];
+  if (moduller.faturalar) {
+    muhasebe.push({
+      href: "/uygulama/faturalar",
+      label: "Faturalar",
+      icon: Receipt,
+    });
+  }
+  if (moduller.hareketler) {
+    muhasebe.push({
+      href: "/uygulama/hareketler",
+      label: "Hareketler",
+      icon: ListOrdered,
+    });
+  }
 
-export function AppShell({ user, children }: AppShellProps) {
+  const kayitlar: NavItem[] = [
+    { href: "/uygulama/profiller", label: "Profiller", icon: Users },
+  ];
+  if (moduller.urunler) {
+    kayitlar.push({
+      href: "/uygulama/urunler",
+      label: "Ürünler / Stok",
+      icon: Package,
+    });
+  }
+  if (moduller.tekrarlayanlar) {
+    kayitlar.push({
+      href: "/uygulama/tekrarlayanlar",
+      label: "Tekrarlayan Kayıtlar",
+      icon: Repeat,
+    });
+  }
+
+  const kisisel: NavItem[] = [];
+  if (moduller.hatirlaticilar) {
+    kisisel.push({
+      href: "/uygulama/hatirlaticilar",
+      label: "Hatırlatıcılar",
+      icon: Bell,
+    });
+  }
+  kisisel.push({
+    href: "/uygulama/ayarlar",
+    label: "Ayarlar",
+    icon: Settings,
+  });
+
+  return [
+    {
+      items: [
+        { href: "/uygulama", label: "Anasayfa", icon: Home, exact: true },
+      ],
+    },
+    { label: "Muhasebe", items: muhasebe },
+    { label: "Kayıtlar", items: kayitlar },
+    { label: "Kişisel", items: kisisel },
+  ];
+}
+
+export function AppShell({ user, moduller, children }: AppShellProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { resolvedTheme, toggleTheme, mounted } = useTheme();
+
+  const navGroups = buildNavGroups(moduller);
 
   function isActive(href: string, exact?: boolean) {
     if (exact) return pathname === href;
