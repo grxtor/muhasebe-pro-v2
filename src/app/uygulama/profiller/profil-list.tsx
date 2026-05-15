@@ -12,6 +12,8 @@ import {
   Phone,
   Mail,
   Tag as TagIcon,
+  Download,
+  Upload,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header";
@@ -21,8 +23,10 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { BulkActionBar, deleteBulkAction } from "@/components/ui/bulk-action-bar";
 import { useBulkSelect } from "@/lib/hooks/use-bulk-select";
 import { bulkDeleteProfiller } from "@/lib/bulk-actions";
+import { downloadExcel } from "@/lib/excel";
 import { ProfilDialog } from "./profil-dialog";
-import { deleteProfil } from "./actions";
+import { ImportDialog } from "./import-dialog";
+import { deleteProfil, exportProfiller } from "./actions";
 import {
   CariTipi,
   cariTipiEtiket,
@@ -104,6 +108,29 @@ export function ProfilList({ profiller, sonrakiKod, tumEtiketler }: Props) {
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
+  // Excel
+  const [importOpen, setImportOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  async function handleExport() {
+    setExporting(true);
+    try {
+      const { rows } = await exportProfiller();
+      if (rows.length === 0) {
+        toast.warning("Dışa aktarılacak profil yok");
+        return;
+      }
+      const tarih = new Date().toISOString().slice(0, 10);
+      downloadExcel(rows, "Profiller", `profiller-${tarih}.xlsx`);
+      toast.success(`${rows.length} profil dışa aktarıldı`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Bilinmeyen hata";
+      toast.error(`Dışa aktarım başarısız: ${msg}`);
+    } finally {
+      setExporting(false);
+    }
+  }
+
   async function onBulkDelete() {
     setBulkDeleting(true);
     const r = await bulkDeleteProfiller(bulk.selectedIds as number[]);
@@ -149,11 +176,33 @@ export function ProfilList({ profiller, sonrakiKod, tumEtiketler }: Props) {
         title="Profiller"
         subtitle="Müşteri ve tedarikçi kayıtları — isim, telefon veya e-posta ile arayın"
         actions={
-          <Button variant="primary" size="md" onPress={openYeni}>
-            <span className="flex items-center gap-1.5">
-              <Plus size={16} /> Yeni Profil
-            </span>
-          </Button>
+          <>
+            <Button
+              variant="ghost"
+              size="md"
+              onPress={() => setImportOpen(true)}
+            >
+              <span className="flex items-center gap-1.5">
+                <Upload size={16} /> İçe Aktar
+              </span>
+            </Button>
+            <Button
+              variant="ghost"
+              size="md"
+              onPress={handleExport}
+              isDisabled={exporting}
+            >
+              <span className="flex items-center gap-1.5">
+                <Download size={16} />
+                {exporting ? "Hazırlanıyor…" : "Dışa Aktar"}
+              </span>
+            </Button>
+            <Button variant="primary" size="md" onPress={openYeni}>
+              <span className="flex items-center gap-1.5">
+                <Plus size={16} /> Yeni Profil
+              </span>
+            </Button>
+          </>
         }
       />
 
@@ -387,6 +436,15 @@ export function ProfilList({ profiller, sonrakiKod, tumEtiketler }: Props) {
         onClose={() => setDialogOpen(false)}
         onSaved={() => {
           setDialogOpen(false);
+          router.refresh();
+        }}
+      />
+
+      <ImportDialog
+        isOpen={importOpen}
+        onClose={() => setImportOpen(false)}
+        onImported={() => {
+          setImportOpen(false);
           router.refresh();
         }}
       />

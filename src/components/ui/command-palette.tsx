@@ -27,6 +27,9 @@ import {
   Palette,
   History,
   ToggleRight,
+  FileText,
+  Wallet,
+  Calculator,
   type LucideIcon,
 } from "lucide-react";
 import { useKeyboardShortcut, modKeyLabel } from "@/lib/hooks/use-keyboard";
@@ -137,6 +140,24 @@ export function CommandPalette({ cariler = [] }: Props) {
         action: () => go("/uygulama/hatirlaticilar?yeni=1"),
         group: "Hızlı Eylem",
       },
+      {
+        id: "yeni-cek-senet",
+        label: "Yeni Çek/Senet",
+        description: "Alınan veya verilen çek/senet",
+        icon: Plus,
+        keywords: ["çek", "senet", "vade"],
+        action: () => go("/uygulama/cek-senet?yeni=1"),
+        group: "Hızlı Eylem",
+      },
+      {
+        id: "yeni-kasa-hareketi",
+        label: "Yeni Kasa Hareketi",
+        description: "Giriş, çıkış veya transfer",
+        icon: Plus,
+        keywords: ["kasa", "para", "transfer", "tahsilat", "ödeme"],
+        action: () => go("/uygulama/kasa?yeni=1"),
+        group: "Hızlı Eylem",
+      },
       // Sayfalar
       {
         id: "anasayfa",
@@ -208,6 +229,30 @@ export function CommandPalette({ cariler = [] }: Props) {
         icon: Bell,
         keywords: ["görev"],
         action: () => go("/uygulama/hatirlaticilar"),
+        group: "Sayfalar",
+      },
+      {
+        id: "cek-senet",
+        label: "Çek / Senet",
+        icon: FileText,
+        keywords: ["çek", "senet", "vade", "tahsil"],
+        action: () => go("/uygulama/cek-senet"),
+        group: "Sayfalar",
+      },
+      {
+        id: "kasa",
+        label: "Kasa",
+        icon: Wallet,
+        keywords: ["kasa", "para", "tl", "usd", "eur", "nakit"],
+        action: () => go("/uygulama/kasa"),
+        group: "Sayfalar",
+      },
+      {
+        id: "kdv-beyan",
+        label: "KDV Beyan",
+        icon: Calculator,
+        keywords: ["kdv", "vergi", "beyan", "tax", "aylık özet"],
+        action: () => go("/uygulama/kdv-beyan"),
         group: "Sayfalar",
       },
       // Ayarlar

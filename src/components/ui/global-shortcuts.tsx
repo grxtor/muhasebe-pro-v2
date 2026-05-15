@@ -23,6 +23,8 @@ export function GlobalShortcuts() {
     if (pathname.startsWith("/uygulama/tekrarlayanlar"))
       return "/uygulama/tekrarlayanlar?yeni=1";
     if (pathname.startsWith("/uygulama/urunler")) return "/uygulama/urunler?yeni=1";
+    if (pathname.startsWith("/uygulama/cek-senet"))
+      return "/uygulama/cek-senet?yeni=1";
     if (pathname.startsWith("/uygulama/ayarlar/etiketler"))
       return "/uygulama/ayarlar/etiketler?yeni=1";
     return null;

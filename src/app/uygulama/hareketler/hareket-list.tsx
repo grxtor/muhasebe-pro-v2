@@ -2,13 +2,16 @@
 
 import { useState, useDeferredValue, useEffect, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Button } from "@heroui/react";
 import {
   Search,
   ListOrdered,
   ArrowDownLeft,
   ArrowUpRight,
   Paperclip,
+  Download,
 } from "lucide-react";
+import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatCard } from "@/components/ui/stat-card";
@@ -17,6 +20,8 @@ import { DataModal } from "@/components/ui/data-modal";
 import { DekontList } from "@/components/ui/dekont-list";
 import { HareketTipi, hareketTipiEtiket } from "@/lib/enums";
 import { formatPara, formatTarih } from "@/lib/format";
+import { downloadExcel } from "@/lib/excel";
+import { exportHareketler } from "./actions";
 
 export interface HareketRow {
   id: number;
@@ -48,6 +53,30 @@ export function HareketList({ items, toplamAlacak, toplamBorc }: Props) {
   // Dekont modal state
   const [dekontHareket, setDekontHareket] = useState<HareketRow | null>(null);
 
+  // Excel export
+  const [exporting, setExporting] = useState(false);
+  async function handleExport() {
+    setExporting(true);
+    try {
+      const { rows } = await exportHareketler({
+        tip: tip || undefined,
+        q: localQ || undefined,
+      });
+      if (rows.length === 0) {
+        toast.warning("Dışa aktarılacak hareket yok");
+        return;
+      }
+      const tarih = new Date().toISOString().slice(0, 10);
+      downloadExcel(rows, "Hareketler", `hareketler-${tarih}.xlsx`);
+      toast.success(`${rows.length} hareket dışa aktarıldı`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Bilinmeyen hata";
+      toast.error(`Dışa aktarım başarısız: ${msg}`);
+    } finally {
+      setExporting(false);
+    }
+  }
+
   useEffect(() => {
     const url = new URLSearchParams(params.toString());
     if (deferredQ) url.set("q", deferredQ);
@@ -75,6 +104,19 @@ export function HareketList({ items, toplamAlacak, toplamBorc }: Props) {
         icon={<ListOrdered size={20} />}
         title="Hareketler"
         subtitle="Tahsilat ve ödemelerinizden oluşan zaman çizelgesi"
+        actions={
+          <Button
+            variant="ghost"
+            size="md"
+            onPress={handleExport}
+            isDisabled={exporting}
+          >
+            <span className="flex items-center gap-1.5">
+              <Download size={16} />
+              {exporting ? "Hazırlanıyor…" : "Dışa Aktar"}
+            </span>
+          </Button>
+        }
       />
 
       <div className="mb-4 grid gap-3 sm:grid-cols-3">

@@ -12,6 +12,8 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Paperclip,
+  FileDown,
+  Download,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header";
@@ -22,8 +24,10 @@ import { StatCard } from "@/components/ui/stat-card";
 import { BulkActionBar, deleteBulkAction } from "@/components/ui/bulk-action-bar";
 import { useBulkSelect } from "@/lib/hooks/use-bulk-select";
 import { bulkDeleteFaturalar } from "@/lib/bulk-actions";
+import { downloadExcel } from "@/lib/excel";
 import { FaturaDialog } from "./fatura-dialog";
-import { deleteFatura } from "./actions";
+import { deleteFatura, exportFaturalar, getFaturaForPdf } from "./actions";
+import { generateFaturaPdf } from "@/lib/fatura-pdf";
 import {
   FaturaYonu,
   FaturaDurumu,
@@ -98,11 +102,63 @@ export function FaturaList({ items, cariler, stats, sonrakiNo }: Props) {
   const [editing, setEditing] = useState<FaturaRow | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<FaturaRow | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [pdfLoadingId, setPdfLoadingId] = useState<number | null>(null);
+
+  async function onDownloadPdf(f: FaturaRow) {
+    setPdfLoadingId(f.id);
+    try {
+      const r = await getFaturaForPdf(f.id);
+      if (!r.ok || !r.data) {
+        toast.error(r.ok ? "PDF verisi yüklenemedi" : r.error);
+        return;
+      }
+      const blob = await generateFaturaPdf(r.data);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Fatura-${f.faturaNo}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success(`Fatura ${f.faturaNo} indirildi`);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "PDF üretilirken hata oluştu",
+      );
+    } finally {
+      setPdfLoadingId(null);
+    }
+  }
 
   // Bulk
   const bulk = useBulkSelect(items);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  // Excel
+  const [exporting, setExporting] = useState(false);
+  async function handleExport() {
+    setExporting(true);
+    try {
+      const { rows } = await exportFaturalar({
+        yon: yon || undefined,
+        durum: durum || undefined,
+      });
+      if (rows.length === 0) {
+        toast.warning("Dışa aktarılacak fatura yok");
+        return;
+      }
+      const tarih = new Date().toISOString().slice(0, 10);
+      downloadExcel(rows, "Faturalar", `faturalar-${tarih}.xlsx`);
+      toast.success(`${rows.length} fatura dışa aktarıldı`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Bilinmeyen hata";
+      toast.error(`Dışa aktarım başarısız: ${msg}`);
+    } finally {
+      setExporting(false);
+    }
+  }
 
   async function onBulkDelete() {
     setBulkDeleting(true);
@@ -146,11 +202,24 @@ export function FaturaList({ items, cariler, stats, sonrakiNo }: Props) {
         title="Faturalar"
         subtitle="Gönderilen ve gelen tüm faturaların kaydı"
         actions={
-          <Button variant="primary" size="md" onPress={openYeni}>
-            <span className="flex items-center gap-1.5">
-              <Plus size={16} /> Yeni Fatura
-            </span>
-          </Button>
+          <>
+            <Button
+              variant="ghost"
+              size="md"
+              onPress={handleExport}
+              isDisabled={exporting}
+            >
+              <span className="flex items-center gap-1.5">
+                <Download size={16} />
+                {exporting ? "Hazırlanıyor…" : "Dışa Aktar"}
+              </span>
+            </Button>
+            <Button variant="primary" size="md" onPress={openYeni}>
+              <span className="flex items-center gap-1.5">
+                <Plus size={16} /> Yeni Fatura
+              </span>
+            </Button>
+          </>
         }
       />
 
@@ -362,6 +431,16 @@ export function FaturaList({ items, cariler, stats, sonrakiNo }: Props) {
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex justify-end gap-1">
+                          <button
+                            onClick={() => onDownloadPdf(f)}
+                            disabled={pdfLoadingId === f.id}
+                            className="rounded-md p-1.5 transition-colors hover:bg-black/5 disabled:opacity-50 dark:hover:bg-white/10"
+                            aria-label="PDF İndir"
+                            title="PDF İndir"
+                            style={{ color: "var(--text-muted)" }}
+                          >
+                            <FileDown size={14} />
+                          </button>
                           <button
                             onClick={() => openDuzenle(f)}
                             className="rounded-md p-1.5 transition-colors hover:bg-black/5 dark:hover:bg-white/10"

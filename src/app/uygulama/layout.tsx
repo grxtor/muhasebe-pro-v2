@@ -28,6 +28,9 @@ export default async function UygulamaLayout({
       modulTekrarlayanlar: true,
       modulHatirlaticilar: true,
       modulEtiketler: true,
+      modulCekSenet: true,
+      modulKasa: true,
+      modulKdvBeyan: true,
     },
   });
   const moduller = readModuleFlags(org);

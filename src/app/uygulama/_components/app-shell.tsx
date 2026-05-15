@@ -27,6 +27,9 @@ import {
   Settings,
   UsersRound,
   Search,
+  FileText,
+  Wallet,
+  Calculator,
 } from "lucide-react";
 import { Button } from "@heroui/react";
 
@@ -73,6 +76,27 @@ function buildNavGroups(moduller: ModuleFlags, role: OrgRole): NavGroup[] {
       href: "/uygulama/hareketler",
       label: "Hareketler",
       icon: ListOrdered,
+    });
+  }
+  if (moduller.cekSenet) {
+    muhasebe.push({
+      href: "/uygulama/cek-senet",
+      label: "Çek / Senet",
+      icon: FileText,
+    });
+  }
+  if (moduller.kasa) {
+    muhasebe.push({
+      href: "/uygulama/kasa",
+      label: "Kasa",
+      icon: Wallet,
+    });
+  }
+  if (moduller.kdvBeyan) {
+    muhasebe.push({
+      href: "/uygulama/kdv-beyan",
+      label: "KDV Beyan",
+      icon: Calculator,
     });
   }
 

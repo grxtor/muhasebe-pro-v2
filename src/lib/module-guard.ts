@@ -16,6 +16,9 @@ export async function isModuleActive(key: ModuleKey): Promise<boolean> {
       modulTekrarlayanlar: true,
       modulHatirlaticilar: true,
       modulEtiketler: true,
+      modulCekSenet: true,
+      modulKasa: true,
+      modulKdvBeyan: true,
     },
   });
   const flags = readModuleFlags(org);

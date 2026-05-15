@@ -1,8 +1,8 @@
 /**
- * Modül toggle sistemi — kullanıcı bazlı.
+ * Modül toggle sistemi — organization bazlı.
  *
  * Çekirdek modüller HER ZAMAN açık (Alacaklar/Borçlar/Profiller/Ayarlar).
- * Opsiyonel modüller kullanıcı tarafından açılıp kapatılabilir.
+ * Opsiyonel modüller şirket sahibi tarafından açılıp kapatılabilir.
  */
 
 export type ModuleKey =
@@ -11,14 +11,16 @@ export type ModuleKey =
   | "urunler"
   | "tekrarlayanlar"
   | "hatirlaticilar"
-  | "etiketler";
+  | "etiketler"
+  | "cekSenet"
+  | "kasa"
+  | "kdvBeyan";
 
 export interface ModuleConfig {
   key: ModuleKey;
   label: string;
   description: string;
   href: string;
-  // Eğer false ise tamamen kaldırılır (örn: deneysel modüller)
   available?: boolean;
 }
 
@@ -59,6 +61,24 @@ export const OPTIONAL_MODULES: ModuleConfig[] = [
     description: "Profilleri renkli etiketlerle gruplama",
     href: "/uygulama/ayarlar/etiketler",
   },
+  {
+    key: "cekSenet",
+    label: "Çek / Senet",
+    description: "Alınan/verilen çek-senet takibi, vade ve durum yönetimi",
+    href: "/uygulama/cek-senet",
+  },
+  {
+    key: "kasa",
+    label: "Kasa",
+    description: "TL/USD/EUR kasaları, transferler, günlük bakiye",
+    href: "/uygulama/kasa",
+  },
+  {
+    key: "kdvBeyan",
+    label: "KDV Beyan",
+    description: "Aylık KDV özeti (faturalardan otomatik hesaplama)",
+    href: "/uygulama/kdv-beyan",
+  },
 ];
 
 export interface ModuleFlags {
@@ -68,6 +88,9 @@ export interface ModuleFlags {
   tekrarlayanlar: boolean;
   hatirlaticilar: boolean;
   etiketler: boolean;
+  cekSenet: boolean;
+  kasa: boolean;
+  kdvBeyan: boolean;
 }
 
 export const DEFAULT_MODULES: ModuleFlags = {
@@ -77,11 +100,11 @@ export const DEFAULT_MODULES: ModuleFlags = {
   tekrarlayanlar: true,
   hatirlaticilar: true,
   etiketler: true,
+  cekSenet: false,
+  kasa: false,
+  kdvBeyan: false,
 };
 
-/**
- * Prisma UserSettings'i ModuleFlags'e çevirir, eksik alanlar default'tan beslenir.
- */
 export function readModuleFlags(
   settings: Partial<{
     modulFaturalar: boolean;
@@ -90,6 +113,9 @@ export function readModuleFlags(
     modulTekrarlayanlar: boolean;
     modulHatirlaticilar: boolean;
     modulEtiketler: boolean;
+    modulCekSenet: boolean;
+    modulKasa: boolean;
+    modulKdvBeyan: boolean;
   }> | null,
 ): ModuleFlags {
   if (!settings) return DEFAULT_MODULES;
@@ -102,5 +128,8 @@ export function readModuleFlags(
     hatirlaticilar:
       settings.modulHatirlaticilar ?? DEFAULT_MODULES.hatirlaticilar,
     etiketler: settings.modulEtiketler ?? DEFAULT_MODULES.etiketler,
+    cekSenet: settings.modulCekSenet ?? DEFAULT_MODULES.cekSenet,
+    kasa: settings.modulKasa ?? DEFAULT_MODULES.kasa,
+    kdvBeyan: settings.modulKdvBeyan ?? DEFAULT_MODULES.kdvBeyan,
   };
 }

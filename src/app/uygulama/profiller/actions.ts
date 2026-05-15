@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { getOrgContext } from "@/lib/auth-helpers";
 import { logAction } from "@/lib/audit";
 import { profilSchema } from "@/lib/schemas/profil";
+import { CariTipi, cariTipiEtiket } from "@/lib/enums";
 
 export type ActionResult<T = unknown> =
   | { ok: true; data?: T }
@@ -157,4 +158,227 @@ export async function toggleProfilAktif(
   });
   revalidatePath("/uygulama/profiller");
   return { ok: true };
+}
+
+/* ============================================================
+   Excel / CSV — Export / Import
+   ============================================================ */
+
+/**
+ * Excel/CSV içine yazılan tek bir profil satırı.
+ * Anahtarlar Türkçe — kullanıcı tarafından kolay düzenlenebilsin.
+ */
+export interface ProfilExportRow {
+  Kod: string;
+  Unvan: string;
+  Tip: string;
+  VergiNo: string;
+  VergiDairesi: string;
+  TcKimlikNo: string;
+  Telefon: string;
+  Email: string;
+  Adres: string;
+  Sehir: string;
+  AcilisBakiyesi: number;
+  Notlar: string;
+  Aktif: string;
+}
+
+/** Tüm profilleri dışa aktarmak üzere bir liste döner. */
+export async function exportProfiller(): Promise<{ rows: ProfilExportRow[] }> {
+  const ctx = await getOrgContext();
+  const records = await db.cari.findMany({
+    where: { organizationId: ctx.orgId },
+    orderBy: { unvan: "asc" },
+  });
+
+  const rows: ProfilExportRow[] = records.map((c) => ({
+    Kod: c.kod,
+    Unvan: c.unvan,
+    Tip:
+      cariTipiEtiket[c.tip as keyof typeof cariTipiEtiket] ?? String(c.tip),
+    VergiNo: c.vergiNo ?? "",
+    VergiDairesi: c.vergiDairesi ?? "",
+    TcKimlikNo: c.tcKimlikNo ?? "",
+    Telefon: c.telefon ?? "",
+    Email: c.email ?? "",
+    Adres: c.adres ?? "",
+    Sehir: c.sehir ?? "",
+    AcilisBakiyesi: Number(c.acilisBakiyesi),
+    Notlar: c.notlar ?? "",
+    Aktif: c.aktif ? "Evet" : "Hayır",
+  }));
+
+  return { rows };
+}
+
+export interface ImportProfilRow {
+  Kod?: string | number | null;
+  Unvan?: string | null;
+  Tip?: string | null;
+  VergiNo?: string | number | null;
+  VergiDairesi?: string | null;
+  TcKimlikNo?: string | number | null;
+  Telefon?: string | number | null;
+  Email?: string | null;
+  Adres?: string | null;
+  Sehir?: string | null;
+  AcilisBakiyesi?: number | string | null;
+  Notlar?: string | null;
+  Aktif?: string | boolean | null;
+}
+
+export interface ImportResult {
+  ok: boolean;
+  added: number;
+  updated: number;
+  failed: number;
+  errors: string[];
+}
+
+function asText(v: unknown): string {
+  if (v === null || v === undefined) return "";
+  if (typeof v === "string") return v.trim();
+  return String(v).trim();
+}
+
+function asOptionalText(v: unknown): string | null {
+  const t = asText(v);
+  return t === "" ? null : t;
+}
+
+function parseTip(v: unknown): CariTipi {
+  const t = asText(v).toLocaleLowerCase("tr-TR");
+  if (!t) return CariTipi.Musteri;
+  // Türkçe etiket ile gelmiş olabilir
+  if (t.includes("müşteri") && t.includes("tedarik")) return CariTipi.HerIkisi;
+  if (t.includes("müşteri") || t === "musteri") return CariTipi.Musteri;
+  if (t.includes("tedarik")) return CariTipi.Tedarikci;
+  if (t.includes("herikisi") || t.includes("her ikisi"))
+    return CariTipi.HerIkisi;
+  if (t.includes("harcama")) return CariTipi.Harcama;
+  // Enum değeri ile gelmiş olabilir
+  const valid = [
+    CariTipi.Musteri,
+    CariTipi.Tedarikci,
+    CariTipi.HerIkisi,
+    CariTipi.Harcama,
+  ] as const;
+  const match = valid.find((x) => x.toLocaleLowerCase("tr-TR") === t);
+  return match ?? CariTipi.Musteri;
+}
+
+function parseAktif(v: unknown): boolean {
+  if (typeof v === "boolean") return v;
+  const t = asText(v).toLocaleLowerCase("tr-TR");
+  if (t === "" || t === "evet" || t === "true" || t === "1" || t === "aktif") {
+    return true;
+  }
+  return false;
+}
+
+function parseDecimal(v: unknown): number {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  const t = asText(v).replace(/\s/g, "").replace(",", ".");
+  if (t === "") return 0;
+  const n = Number(t);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/**
+ * Profilleri toplu içe aktar.
+ * Mevcut profil `Kod` ile bulunur — varsa güncellenir, yoksa eklenir.
+ */
+export async function importProfiller(
+  rows: ImportProfilRow[],
+): Promise<ImportResult> {
+  const ctx = await getOrgContext();
+
+  let added = 0;
+  let updated = 0;
+  let failed = 0;
+  const errors: string[] = [];
+
+  for (const [index, row] of rows.entries()) {
+    const satirNo = index + 2; // başlık satırı + 0-index
+    const data = {
+      kod: asText(row.Kod),
+      unvan: asText(row.Unvan),
+      tip: parseTip(row.Tip),
+      vergiNo: asOptionalText(row.VergiNo),
+      vergiDairesi: asOptionalText(row.VergiDairesi),
+      tcKimlikNo: asOptionalText(row.TcKimlikNo),
+      telefon: asOptionalText(row.Telefon),
+      email: asOptionalText(row.Email),
+      adres: asOptionalText(row.Adres),
+      sehir: asOptionalText(row.Sehir),
+      acilisBakiyesi: parseDecimal(row.AcilisBakiyesi),
+      notlar: asOptionalText(row.Notlar),
+      aktif: parseAktif(row.Aktif),
+    };
+
+    // Zorunlu alan kontrolü
+    if (!data.kod || !data.unvan || data.unvan.length < 2) {
+      failed++;
+      errors.push(`Satır ${satirNo}: Kod ve Ünvan (en az 2 karakter) zorunludur`);
+      continue;
+    }
+
+    // Schema doğrulaması
+    const parsed = profilSchema.safeParse(data);
+    if (!parsed.success) {
+      failed++;
+      errors.push(
+        `Satır ${satirNo}: ${parsed.error.issues[0]?.message ?? "Geçersiz"}`,
+      );
+      continue;
+    }
+
+    try {
+      const existing = await db.cari.findFirst({
+        where: { organizationId: ctx.orgId, kod: parsed.data.kod },
+        select: { id: true },
+      });
+
+      if (existing) {
+        await db.cari.update({
+          where: { id: existing.id },
+          data: parsed.data,
+        });
+        updated++;
+      } else {
+        await db.cari.create({
+          data: {
+            ...parsed.data,
+            userId: ctx.userId,
+            organizationId: ctx.orgId,
+          },
+        });
+        added++;
+      }
+    } catch (err) {
+      failed++;
+      const message = err instanceof Error ? err.message : "Veritabanı hatası";
+      errors.push(`Satır ${satirNo}: ${message}`);
+    }
+  }
+
+  await logAction({
+    userId: ctx.userId,
+    organizationId: ctx.orgId,
+    islem: "import",
+    entity: "Cari",
+    ozet: `Excel içe aktarım — ${added} eklendi, ${updated} güncellendi, ${failed} hatalı`,
+  });
+
+  revalidatePath("/uygulama/profiller");
+  revalidatePath("/uygulama");
+
+  return {
+    ok: failed === 0,
+    added,
+    updated,
+    failed,
+    errors: errors.slice(0, 10), // ilk 10 hatayı döndür
+  };
 }

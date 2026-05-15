@@ -5,7 +5,13 @@ import { db } from "@/lib/db";
 import { getOrgContext } from "@/lib/auth-helpers";
 import { logAction } from "@/lib/audit";
 import { faturaSchema } from "@/lib/schemas/fatura";
-import { FaturaYonu, OdemeDurumu, OdemeYonu } from "@/lib/enums";
+import {
+  FaturaYonu,
+  OdemeDurumu,
+  OdemeYonu,
+  faturaYonuEtiket,
+  faturaDurumuEtiket,
+} from "@/lib/enums";
 
 export type ActionResult<T = unknown> =
   | { ok: true; data?: T }
@@ -205,4 +211,210 @@ export async function deleteFatura(id: number): Promise<ActionResult> {
   revalidatePath("/uygulama/borclar");
   revalidatePath("/uygulama");
   return { ok: true };
+}
+
+/* ============================================================
+   PDF için veri yükleyici — client tarafta jsPDF üretir.
+   ============================================================ */
+
+export interface FaturaPdfPayload {
+  fatura: {
+    faturaNo: string;
+    tarih: string;
+    vadeTarihi: string | null;
+    isAciklamasi: string;
+    tutar: string;
+    kdvOrani: string;
+    kdvTutari: string;
+    toplamTutar: string;
+    paraBirimi: string;
+    notlar: string | null;
+    yon: string;
+  };
+  cari: {
+    unvan: string;
+    vergiNo: string | null;
+    vergiDairesi: string | null;
+    adres: string | null;
+    sehir: string | null;
+    telefon: string | null;
+    email: string | null;
+  };
+  org: {
+    sirketAdi: string | null;
+    vergiNo: string | null;
+    vergiDairesi: string | null;
+    adres: string | null;
+    sehir: string | null;
+    ulke: string | null;
+    telefon: string | null;
+    email: string | null;
+    website: string | null;
+    iban: string | null;
+    bankaAdi: string | null;
+    logoUrl: string | null;
+  };
+}
+
+export async function getFaturaForPdf(
+  faturaId: number,
+): Promise<ActionResult<FaturaPdfPayload>> {
+  const ctx = await getOrgContext();
+
+  const fatura = await db.fatura.findFirst({
+    where: { id: faturaId, organizationId: ctx.orgId },
+    include: {
+      cari: {
+        select: {
+          unvan: true,
+          vergiNo: true,
+          vergiDairesi: true,
+          adres: true,
+          sehir: true,
+          telefon: true,
+          email: true,
+        },
+      },
+    },
+  });
+  if (!fatura) return { ok: false, error: "Fatura bulunamadı" };
+
+  const org = await db.organization.findUnique({
+    where: { id: ctx.orgId },
+    select: {
+      sirketAdi: true,
+      ad: true,
+      vergiNo: true,
+      vergiDairesi: true,
+      adres: true,
+      sehir: true,
+      ulke: true,
+      telefon: true,
+      email: true,
+      website: true,
+      iban: true,
+      bankaAdi: true,
+      logoUrl: true,
+    },
+  });
+  if (!org) return { ok: false, error: "Şirket bulunamadı" };
+
+  return {
+    ok: true,
+    data: {
+      fatura: {
+        faturaNo: fatura.faturaNo,
+        tarih: fatura.tarih.toISOString(),
+        vadeTarihi: fatura.vadeTarihi?.toISOString() ?? null,
+        isAciklamasi: fatura.isAciklamasi,
+        tutar: fatura.tutar.toString(),
+        kdvOrani: fatura.kdvOrani.toString(),
+        kdvTutari: fatura.kdvTutari.toString(),
+        toplamTutar: fatura.toplamTutar.toString(),
+        paraBirimi: fatura.paraBirimi,
+        notlar: fatura.notlar,
+        yon: fatura.yon,
+      },
+      cari: fatura.cari,
+      org: {
+        // sirketAdi yoksa org'un asıl adını fallback olarak kullan
+        sirketAdi: org.sirketAdi ?? org.ad,
+        vergiNo: org.vergiNo,
+        vergiDairesi: org.vergiDairesi,
+        adres: org.adres,
+        sehir: org.sehir,
+        ulke: org.ulke,
+        telefon: org.telefon,
+        email: org.email,
+        website: org.website,
+        iban: org.iban,
+        bankaAdi: org.bankaAdi,
+        logoUrl: org.logoUrl,
+      },
+    },
+  };
+}
+
+/* ============================================================
+   Excel / CSV — Export
+   ============================================================ */
+
+export interface FaturaExportRow {
+  FaturaNo: string;
+  Tarih: string;
+  VadeTarihi: string;
+  Yon: string;
+  Durum: string;
+  ProfilKodu: string;
+  ProfilUnvani: string;
+  IsAciklamasi: string;
+  AraToplam: number;
+  KdvOrani: number;
+  KdvTutari: number;
+  GenelToplam: number;
+  OdenenTutar: number;
+  ParaBirimi: string;
+  Notlar: string;
+}
+
+export interface FaturaExportFilters {
+  yon?: string;
+  durum?: string;
+  baslangic?: string; // ISO tarih
+  bitis?: string; // ISO tarih
+}
+
+/** Faturaları (opsiyonel filtreyle) dışa aktar. */
+export async function exportFaturalar(
+  filters?: FaturaExportFilters,
+): Promise<{ rows: FaturaExportRow[] }> {
+  const ctx = await getOrgContext();
+
+  const where: {
+    organizationId: string;
+    yon?: typeof FaturaYonu.Gonderilen | typeof FaturaYonu.Gelen;
+    durum?: string;
+    tarih?: { gte?: Date; lte?: Date };
+  } = { organizationId: ctx.orgId };
+
+  if (filters?.yon === FaturaYonu.Gonderilen || filters?.yon === FaturaYonu.Gelen) {
+    where.yon = filters.yon;
+  }
+  if (filters?.durum) {
+    where.durum = filters.durum;
+  }
+  if (filters?.baslangic || filters?.bitis) {
+    where.tarih = {};
+    if (filters.baslangic) where.tarih.gte = new Date(filters.baslangic);
+    if (filters.bitis) where.tarih.lte = new Date(filters.bitis);
+  }
+
+  const records = await db.fatura.findMany({
+    where: where as never,
+    orderBy: { tarih: "desc" },
+    include: { cari: { select: { kod: true, unvan: true } } },
+  });
+
+  const rows: FaturaExportRow[] = records.map((f) => ({
+    FaturaNo: f.faturaNo,
+    Tarih: f.tarih.toISOString().slice(0, 10),
+    VadeTarihi: f.vadeTarihi ? f.vadeTarihi.toISOString().slice(0, 10) : "",
+    Yon:
+      faturaYonuEtiket[f.yon as keyof typeof faturaYonuEtiket] ?? String(f.yon),
+    Durum:
+      faturaDurumuEtiket[f.durum as keyof typeof faturaDurumuEtiket] ??
+      String(f.durum),
+    ProfilKodu: f.cari?.kod ?? "",
+    ProfilUnvani: f.cari?.unvan ?? "",
+    IsAciklamasi: f.isAciklamasi,
+    AraToplam: Number(f.tutar),
+    KdvOrani: Number(f.kdvOrani),
+    KdvTutari: Number(f.kdvTutari),
+    GenelToplam: Number(f.toplamTutar),
+    OdenenTutar: Number(f.odenenTutar),
+    ParaBirimi: f.paraBirimi,
+    Notlar: f.notlar ?? "",
+  }));
+
+  return { rows };
 }

@@ -11,6 +11,9 @@ import {
   Bell,
   Tag,
   Info,
+  FileText,
+  Wallet,
+  Calculator,
 } from "lucide-react";
 import { SectionCard } from "../profil-form";
 import { updateModuller } from "../actions";
@@ -23,6 +26,9 @@ const MODULE_ICONS: Record<ModuleKey, React.ComponentType<{ size?: number }>> = 
   tekrarlayanlar: Repeat,
   hatirlaticilar: Bell,
   etiketler: Tag,
+  cekSenet: FileText,
+  kasa: Wallet,
+  kdvBeyan: Calculator,
 };
 
 interface Props {
@@ -49,6 +55,9 @@ export function ModullerForm({ flags, stats }: Props) {
       if (state.tekrarlayanlar) fd.set("modulTekrarlayanlar", "true");
       if (state.hatirlaticilar) fd.set("modulHatirlaticilar", "true");
       if (state.etiketler) fd.set("modulEtiketler", "true");
+      if (state.cekSenet) fd.set("modulCekSenet", "true");
+      if (state.kasa) fd.set("modulKasa", "true");
+      if (state.kdvBeyan) fd.set("modulKdvBeyan", "true");
 
       const r = await updateModuller(fd);
       if (r.ok) {

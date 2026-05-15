@@ -52,6 +52,9 @@ model User {
   urunler         Urun[]
   stokHareketleri StokHareketi[]
   auditLogs       AuditLog[]
+  cekSenetler     CekSenet[]
+  kasalar         Kasa[]
+  kasaHareketleri KasaHareketi[]
 
   @@index([email])
   @@index([currentOrgId])
@@ -97,6 +100,9 @@ model Organization {
   modulTekrarlayanlar Boolean @default(true)
   modulHatirlaticilar Boolean @default(true)
   modulEtiketler      Boolean @default(true)
+  modulCekSenet       Boolean @default(false)
+  modulKasa           Boolean @default(false)
+  modulKdvBeyan       Boolean @default(false)
 
   defaultKdvOrani   Decimal @default(20) @db.Decimal(5, 2)
   defaultParaBirimi String  @default("TRY") @db.VarChar(3)
@@ -117,6 +123,9 @@ model Organization {
   urunler         Urun[]
   stokHareketleri StokHareketi[]
   auditLogs       AuditLog[]
+  cekSenetler     CekSenet[]
+  kasalar         Kasa[]
+  kasaHareketleri KasaHareketi[]
 
   olusturmaTarihi  DateTime @default(now())
   guncellemeTarihi DateTime @updatedAt
@@ -267,6 +276,7 @@ model Cari {
   etiketler      CariTag[]
   hatirlaticilar Hatirlatici[]
   tekrarlayanlar TekrarlayanKayit[]
+  cekSenetler    CekSenet[]
 
   @@unique([userId, kod])
   @@index([userId])
@@ -692,3 +702,125 @@ model AuditLog {
   @@index([entity, entityId])
 }
 
+
+// ============================================================
+//  Çek / Senet
+// ============================================================
+
+enum CekSenetTip {
+  Cek
+  Senet
+}
+
+enum CekSenetYon {
+  Alinan
+  Verilen
+}
+
+enum CekSenetDurum {
+  Portfoyde
+  TahsileGonderildi
+  Tahsil
+  Iade
+  Karsiliksiz
+  Iptal
+}
+
+model CekSenet {
+  id   Int @id @default(autoincrement())
+
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  cariId Int?
+  cari   Cari? @relation(fields: [cariId], references: [id], onDelete: SetNull)
+
+  tip         CekSenetTip
+  yon         CekSenetYon
+  durum       CekSenetDurum @default(Portfoyde)
+
+  belgeNo     String
+  bankaAdi    String?
+  sube        String?
+  hesapNo     String?
+  keside      String?
+
+  tutar       Decimal  @db.Decimal(18, 2)
+  paraBirimi  String   @default("TRY") @db.VarChar(3)
+
+  kesideTarihi DateTime
+  vadeTarihi   DateTime
+  tahsilTarihi DateTime?
+
+  aciklama    String?  @db.Text
+
+  olusturmaTarihi  DateTime @default(now())
+  guncellemeTarihi DateTime @updatedAt
+
+  @@index([organizationId, durum])
+  @@index([organizationId, vadeTarihi])
+  @@index([cariId])
+}
+
+// ============================================================
+//  Kasa (TL, USD, EUR vb. — birden fazla olabilir)
+// ============================================================
+
+model Kasa {
+  id   Int @id @default(autoincrement())
+
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  ad         String
+  paraBirimi String  @default("TRY") @db.VarChar(3)
+  acilis     Decimal @default(0) @db.Decimal(18, 2)
+  aktif      Boolean @default(true)
+  varsayilan Boolean @default(false)
+  aciklama   String? @db.Text
+
+  hareketler KasaHareketi[]
+
+  olusturmaTarihi  DateTime @default(now())
+  guncellemeTarihi DateTime @updatedAt
+
+  @@index([organizationId])
+}
+
+enum KasaHareketTip {
+  Giris    // para girişi (tahsilat, devir vs)
+  Cikis    // para çıkışı (ödeme, gider vs)
+  Transfer // başka kasaya transfer
+}
+
+model KasaHareketi {
+  id   Int @id @default(autoincrement())
+
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  kasaId Int
+  kasa   Kasa @relation(fields: [kasaId], references: [id], onDelete: Cascade)
+
+  // Transfer için karşı kasa
+  hedefKasaId Int?
+
+  tip        KasaHareketTip
+  tutar      Decimal @db.Decimal(18, 2)
+  paraBirimi String  @default("TRY") @db.VarChar(3)
+
+  tarih      DateTime
+  aciklama   String? @db.Text
+  belgeNo    String?
+
+  olusturmaTarihi DateTime @default(now())
+
+  @@index([organizationId, tarih(sort: Desc)])
+  @@index([kasaId, tarih(sort: Desc)])
+}

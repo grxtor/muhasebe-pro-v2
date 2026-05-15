@@ -12,14 +12,23 @@ export default async function ModullerAyarlariPage() {
   const flags = readModuleFlags(org);
 
   // Kullanım istatistikleri (kapatılırken uyarı için)
-  const [faturaSayisi, hareketSayisi, urunSayisi, tekrarSayisi, hatirSayisi] =
-    await Promise.all([
-      db.fatura.count({ where: { organizationId: orgId } }),
-      db.hareket.count({ where: { organizationId: orgId } }),
-      db.urun.count({ where: { organizationId: orgId } }),
-      db.tekrarlayanKayit.count({ where: { organizationId: orgId } }),
-      db.hatirlatici.count({ where: { organizationId: orgId } }),
-    ]);
+  const [
+    faturaSayisi,
+    hareketSayisi,
+    urunSayisi,
+    tekrarSayisi,
+    hatirSayisi,
+    cekSenetSayisi,
+    kasaSayisi,
+  ] = await Promise.all([
+    db.fatura.count({ where: { organizationId: orgId } }),
+    db.hareket.count({ where: { organizationId: orgId } }),
+    db.urun.count({ where: { organizationId: orgId } }),
+    db.tekrarlayanKayit.count({ where: { organizationId: orgId } }),
+    db.hatirlatici.count({ where: { organizationId: orgId } }),
+    db.cekSenet.count({ where: { organizationId: orgId } }),
+    db.kasa.count({ where: { organizationId: orgId } }),
+  ]);
 
   return (
     <ModullerForm
@@ -31,6 +40,9 @@ export default async function ModullerAyarlariPage() {
         tekrarlayanlar: tekrarSayisi,
         hatirlaticilar: hatirSayisi,
         etiketler: 0,
+        cekSenet: cekSenetSayisi,
+        kasa: kasaSayisi,
+        kdvBeyan: 0,
       }}
     />
   );

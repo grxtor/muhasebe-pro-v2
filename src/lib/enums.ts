@@ -208,3 +208,65 @@ export const tagColorClass: Record<
     border: "oklch(0.7 0.15 350 / 0.4)",
   },
 };
+
+// ============================================================
+//  Çek / Senet
+// ============================================================
+
+export const CekSenetTip = {
+  Cek: "Cek",
+  Senet: "Senet",
+} as const;
+export type CekSenetTip = (typeof CekSenetTip)[keyof typeof CekSenetTip];
+
+export const cekSenetTipEtiket: Record<CekSenetTip, string> = {
+  Cek: "Çek",
+  Senet: "Senet",
+};
+
+export const CekSenetYon = {
+  Alinan: "Alinan",
+  Verilen: "Verilen",
+} as const;
+export type CekSenetYon = (typeof CekSenetYon)[keyof typeof CekSenetYon];
+
+export const cekSenetYonEtiket: Record<CekSenetYon, string> = {
+  Alinan: "Alınan",
+  Verilen: "Verilen",
+};
+
+export const CekSenetDurum = {
+  Portfoyde: "Portfoyde",
+  TahsileGonderildi: "TahsileGonderildi",
+  Tahsil: "Tahsil",
+  Iade: "Iade",
+  Karsiliksiz: "Karsiliksiz",
+  Iptal: "Iptal",
+} as const;
+export type CekSenetDurum = (typeof CekSenetDurum)[keyof typeof CekSenetDurum];
+
+export const cekSenetDurumEtiket: Record<CekSenetDurum, string> = {
+  Portfoyde: "Portföyde",
+  TahsileGonderildi: "Tahsile Gönderildi",
+  Tahsil: "Tahsil Edildi",
+  Iade: "İade Edildi",
+  Karsiliksiz: "Karşılıksız",
+  Iptal: "İptal",
+};
+
+// ============================================================
+//  Kasa
+// ============================================================
+
+export const KasaHareketTip = {
+  Giris: "Giris",
+  Cikis: "Cikis",
+  Transfer: "Transfer",
+} as const;
+export type KasaHareketTip = (typeof KasaHareketTip)[keyof typeof KasaHareketTip];
+
+export const kasaHareketTipEtiket: Record<KasaHareketTip, string> = {
+  Giris: "Giriş",
+  Cikis: "Çıkış",
+  Transfer: "Transfer",
+};
