@@ -342,7 +342,7 @@ export function CommandPalette({ cariler = [] }: Props) {
       role="dialog"
       aria-modal="true"
       aria-label="Komut paleti"
-      className="fixed inset-0 z-[60] grid place-items-start overflow-y-auto p-4 pt-[15vh]"
+      className="fixed inset-0 z-[60] flex justify-center overflow-y-auto p-4 pt-[15vh]"
     >
       <button
         aria-label="Kapat"
@@ -350,7 +350,7 @@ export function CommandPalette({ cariler = [] }: Props) {
         onClick={() => setOpen(false)}
       />
       <div
-        className="relative w-full max-w-xl overflow-hidden rounded-2xl border shadow-2xl"
+        className="relative mx-auto h-fit w-full max-w-xl overflow-hidden rounded-2xl border shadow-2xl"
         style={{
           background: "var(--surface)",
           borderColor: "var(--border)",

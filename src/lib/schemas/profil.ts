@@ -9,7 +9,12 @@ const opt = (s: z.ZodString) =>
 export const profilSchema = z.object({
   kod: z.string().min(1, "Kod zorunludur").max(50),
   unvan: z.string().min(2, "Ünvan en az 2 karakter olmalı").max(250),
-  tip: z.enum([CariTipi.Musteri, CariTipi.Tedarikci, CariTipi.HerIkisi]),
+  tip: z.enum([
+    CariTipi.Musteri,
+    CariTipi.Tedarikci,
+    CariTipi.HerIkisi,
+    CariTipi.Harcama,
+  ]),
   vergiNo: opt(z.string().max(50)),
   vergiDairesi: opt(z.string().max(100)),
   tcKimlikNo: opt(z.string().max(20)),

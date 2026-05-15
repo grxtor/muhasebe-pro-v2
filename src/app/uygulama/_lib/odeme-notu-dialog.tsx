@@ -114,7 +114,7 @@ export function OdemeNotuDialog({
       <form id={formKey} action={onAction} className="space-y-4">
         <Field>
           <Label htmlFor="cariId" required>
-            Profil (Müşteri / Tedarikçi)
+            Profil (Müşteri / Tedarikçi / Harcama kategorisi)
           </Label>
           <Select
             id="cariId"

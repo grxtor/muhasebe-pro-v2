@@ -2,11 +2,19 @@
 
 import { useState, useDeferredValue, useEffect, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, ListOrdered, ArrowDownLeft, ArrowUpRight } from "lucide-react";
+import {
+  Search,
+  ListOrdered,
+  ArrowDownLeft,
+  ArrowUpRight,
+  Paperclip,
+} from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatCard } from "@/components/ui/stat-card";
 import { Select, TextInput } from "@/components/ui/form-field";
+import { DataModal } from "@/components/ui/data-modal";
+import { DekontList } from "@/components/ui/dekont-list";
 import { HareketTipi, hareketTipiEtiket } from "@/lib/enums";
 import { formatPara, formatTarih } from "@/lib/format";
 
@@ -36,6 +44,9 @@ export function HareketList({ items, toplamAlacak, toplamBorc }: Props) {
   const [localQ, setLocalQ] = useState(params.get("q") ?? "");
   const deferredQ = useDeferredValue(localQ);
   const tip = params.get("tip") ?? "";
+
+  // Dekont modal state
+  const [dekontHareket, setDekontHareket] = useState<HareketRow | null>(null);
 
   useEffect(() => {
     const url = new URLSearchParams(params.toString());
@@ -138,6 +149,9 @@ export function HareketList({ items, toplamAlacak, toplamBorc }: Props) {
                   <th className="px-4 py-3 font-medium">Açıklama</th>
                   <th className="px-4 py-3 font-medium">Tip</th>
                   <th className="px-4 py-3 text-right font-medium">Tutar</th>
+                  <th className="w-12 px-2 py-3 text-center font-medium">
+                    <span className="sr-only">Dekont</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -198,6 +212,18 @@ export function HareketList({ items, toplamAlacak, toplamBorc }: Props) {
                         {isAlacak ? "+" : "−"}
                         {formatPara(parseFloat(h.tutar), h.paraBirimi)}
                       </td>
+                      <td className="px-2 py-3 text-center">
+                        <button
+                          type="button"
+                          onClick={() => setDekontHareket(h)}
+                          className="rounded-md p-1.5 transition-colors hover:bg-black/5 dark:hover:bg-white/10"
+                          style={{ color: "var(--text-muted)" }}
+                          aria-label="Dekont / belge ekle"
+                          title="Dekont / belge ekle"
+                        >
+                          <Paperclip size={14} />
+                        </button>
+                      </td>
                     </tr>
                   );
                 })}
@@ -217,6 +243,22 @@ export function HareketList({ items, toplamAlacak, toplamBorc }: Props) {
           </div>
         </div>
       )}
+
+      <DataModal
+        isOpen={dekontHareket !== null}
+        onClose={() => setDekontHareket(null)}
+        title="Dekont / Belge"
+        description={
+          dekontHareket
+            ? `${dekontHareket.cari.unvan} · ${formatTarih(dekontHareket.tarih)} · ${formatPara(parseFloat(dekontHareket.tutar), dekontHareket.paraBirimi)}`
+            : ""
+        }
+        size="lg"
+      >
+        {dekontHareket && (
+          <DekontList hedef={{ tip: "hareket", id: dekontHareket.id }} />
+        )}
+      </DataModal>
     </>
   );
 }

@@ -200,6 +200,7 @@ enum CariTipi {
   Musteri
   Tedarikci
   HerIkisi
+  Harcama
 }
 
 enum OdemeYonu {

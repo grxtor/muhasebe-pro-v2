@@ -45,11 +45,14 @@ export function ProfilDialog({
   const [secilenEtiketler, setSecilenEtiketler] = useState<number[]>(
     profil?.etiketler.map((t) => t.id) ?? [],
   );
+  const [tip, setTip] = useState<string>(profil?.tip ?? CariTipi.Musteri);
+  const isHarcama = tip === CariTipi.Harcama;
 
   // Modal her açıldığında etiket seçimini sıfırla
   useEffect(() => {
     if (isOpen) {
       setSecilenEtiketler(profil?.etiketler.map((t) => t.id) ?? []);
+      setTip(profil?.tip ?? CariTipi.Musteri);
     }
   }, [isOpen, profil]);
 
@@ -104,7 +107,7 @@ export function ProfilDialog({
       description={
         isEdit
           ? "Profil bilgilerini güncelleyin"
-          : "Müşteri veya tedarikçi ekleyin"
+          : "Müşteri, tedarikçi veya harcama kategorisi ekleyin"
       }
       size="xl"
       footer={
@@ -145,7 +148,7 @@ export function ProfilDialog({
           </Field>
           <Field className="sm:col-span-2">
             <Label htmlFor="unvan" required>
-              Ünvan / Ad Soyad
+              {isHarcama ? "Kategori Adı" : "Ünvan / Ad Soyad"}
             </Label>
             <TextInput
               id="unvan"
@@ -153,7 +156,11 @@ export function ProfilDialog({
               required
               minLength={2}
               defaultValue={profil?.unvan ?? ""}
-              placeholder="Örnek Limited"
+              placeholder={
+                isHarcama
+                  ? "Yemek, Yakıt, Kira, Personel maaşları..."
+                  : "Örnek Limited"
+              }
             />
           </Field>
         </div>
@@ -163,7 +170,8 @@ export function ProfilDialog({
           <Select
             id="tip"
             name="tip"
-            defaultValue={profil?.tip ?? CariTipi.Musteri}
+            value={tip}
+            onChange={(e) => setTip(e.target.value)}
           >
             <option value={CariTipi.Musteri}>{cariTipiEtiket.Musteri}</option>
             <option value={CariTipi.Tedarikci}>
@@ -172,104 +180,125 @@ export function ProfilDialog({
             <option value={CariTipi.HerIkisi}>
               {cariTipiEtiket.HerIkisi}
             </option>
+            <option value={CariTipi.Harcama}>{cariTipiEtiket.Harcama}</option>
           </Select>
+          {isHarcama && (
+            <p
+              className="mt-1.5 text-xs"
+              style={{ color: "var(--text-soft)" }}
+            >
+              💡 Harcama profili — bir kategori. Altına Borç ekleyerek tarih,
+              tutar ve notla harcama kaydedebilirsin.
+            </p>
+          )}
         </Field>
 
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Field>
-            <Label htmlFor="vergiNo">Vergi No</Label>
-            <TextInput
-              id="vergiNo"
-              name="vergiNo"
-              defaultValue={profil?.vergiNo ?? ""}
-              placeholder="1234567890"
-            />
-          </Field>
-          <Field>
-            <Label htmlFor="vergiDairesi">Vergi Dairesi</Label>
-            <TextInput
-              id="vergiDairesi"
-              name="vergiDairesi"
-              defaultValue={profil?.vergiDairesi ?? ""}
-              placeholder="Şişli"
-            />
-          </Field>
-          <Field>
-            <Label htmlFor="tcKimlikNo">T.C. Kimlik</Label>
-            <TextInput
-              id="tcKimlikNo"
-              name="tcKimlikNo"
-              defaultValue={profil?.tcKimlikNo ?? ""}
-              placeholder="12345678901"
-            />
-          </Field>
-        </div>
+        {!isHarcama && (
+          <>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Field>
+                <Label htmlFor="vergiNo">Vergi No</Label>
+                <TextInput
+                  id="vergiNo"
+                  name="vergiNo"
+                  defaultValue={profil?.vergiNo ?? ""}
+                  placeholder="1234567890"
+                />
+              </Field>
+              <Field>
+                <Label htmlFor="vergiDairesi">Vergi Dairesi</Label>
+                <TextInput
+                  id="vergiDairesi"
+                  name="vergiDairesi"
+                  defaultValue={profil?.vergiDairesi ?? ""}
+                  placeholder="Şişli"
+                />
+              </Field>
+              <Field>
+                <Label htmlFor="tcKimlikNo">T.C. Kimlik</Label>
+                <TextInput
+                  id="tcKimlikNo"
+                  name="tcKimlikNo"
+                  defaultValue={profil?.tcKimlikNo ?? ""}
+                  placeholder="12345678901"
+                />
+              </Field>
+            </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field>
-            <Label htmlFor="telefon">Telefon</Label>
-            <TextInput
-              id="telefon"
-              name="telefon"
-              type="tel"
-              defaultValue={profil?.telefon ?? ""}
-              placeholder="0532 000 00 00"
-            />
-          </Field>
-          <Field>
-            <Label htmlFor="email">E-posta</Label>
-            <TextInput
-              id="email"
-              name="email"
-              type="email"
-              defaultValue={profil?.email ?? ""}
-              placeholder="iletisim@firma.com"
-            />
-          </Field>
-        </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field>
+                <Label htmlFor="telefon">Telefon</Label>
+                <TextInput
+                  id="telefon"
+                  name="telefon"
+                  type="tel"
+                  defaultValue={profil?.telefon ?? ""}
+                  placeholder="0532 000 00 00"
+                />
+              </Field>
+              <Field>
+                <Label htmlFor="email">E-posta</Label>
+                <TextInput
+                  id="email"
+                  name="email"
+                  type="email"
+                  defaultValue={profil?.email ?? ""}
+                  placeholder="iletisim@firma.com"
+                />
+              </Field>
+            </div>
+
+            <Field>
+              <Label htmlFor="adres">Adres</Label>
+              <TextArea
+                id="adres"
+                name="adres"
+                rows={2}
+                defaultValue={profil?.adres ?? ""}
+                placeholder="Açık adres..."
+              />
+            </Field>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field>
+                <Label htmlFor="sehir">Şehir</Label>
+                <TextInput
+                  id="sehir"
+                  name="sehir"
+                  defaultValue={profil?.sehir ?? ""}
+                  placeholder="İstanbul"
+                />
+              </Field>
+              <Field>
+                <Label htmlFor="acilisBakiyesi" hint="₺">
+                  Açılış Bakiyesi
+                </Label>
+                <TextInput
+                  id="acilisBakiyesi"
+                  name="acilisBakiyesi"
+                  type="number"
+                  step="0.01"
+                  defaultValue={profil?.acilisBakiyesi ?? "0"}
+                />
+              </Field>
+            </div>
+          </>
+        )}
 
         <Field>
-          <Label htmlFor="adres">Adres</Label>
-          <TextArea
-            id="adres"
-            name="adres"
-            rows={2}
-            defaultValue={profil?.adres ?? ""}
-            placeholder="Açık adres..."
-          />
-        </Field>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field>
-            <Label htmlFor="sehir">Şehir</Label>
-            <TextInput
-              id="sehir"
-              name="sehir"
-              defaultValue={profil?.sehir ?? ""}
-              placeholder="İstanbul"
-            />
-          </Field>
-          <Field>
-            <Label htmlFor="acilisBakiyesi" hint="₺">
-              Açılış Bakiyesi
-            </Label>
-            <TextInput
-              id="acilisBakiyesi"
-              name="acilisBakiyesi"
-              type="number"
-              step="0.01"
-              defaultValue={profil?.acilisBakiyesi ?? "0"}
-            />
-          </Field>
-        </div>
-
-        <Field>
-          <Label htmlFor="notlar">Notlar</Label>
+          <Label htmlFor="notlar">
+            {isHarcama ? "Açıklama" : "Notlar"}
+          </Label>
           <TextArea
             id="notlar"
             name="notlar"
-            rows={2}
+            rows={isHarcama ? 3 : 2}
             defaultValue={profil?.notlar ?? ""}
+            placeholder={
+              isHarcama
+                ? "Bu kategorinin amacı, kapsamı (örn. ofis için yapılan tüm yemek harcamaları)..."
+                : ""
+            }
           />
         </Field>
 

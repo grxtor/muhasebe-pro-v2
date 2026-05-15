@@ -176,6 +176,7 @@ export function ProfilList({ profiller, sonrakiKod, tumEtiketler }: Props) {
           <option value={CariTipi.Musteri}>{cariTipiEtiket.Musteri}</option>
           <option value={CariTipi.Tedarikci}>{cariTipiEtiket.Tedarikci}</option>
           <option value={CariTipi.HerIkisi}>{cariTipiEtiket.HerIkisi}</option>
+          <option value={CariTipi.Harcama}>{cariTipiEtiket.Harcama}</option>
         </Select>
         <Select
           value={etiket}
@@ -435,6 +436,8 @@ function tipBg(tip: string): string {
       return "var(--positive-soft)";
     case CariTipi.Tedarikci:
       return "var(--brand-soft)";
+    case CariTipi.Harcama:
+      return "var(--negative-soft)";
     default:
       return "var(--surface-muted)";
   }
@@ -446,6 +449,8 @@ function tipColor(tip: string): string {
       return "var(--positive)";
     case CariTipi.Tedarikci:
       return "var(--brand)";
+    case CariTipi.Harcama:
+      return "var(--negative)";
     default:
       return "var(--text-muted)";
   }

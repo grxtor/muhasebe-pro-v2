@@ -7,6 +7,7 @@ export const CariTipi = {
   Musteri: "Musteri",
   Tedarikci: "Tedarikci",
   HerIkisi: "HerIkisi",
+  Harcama: "Harcama",
 } as const;
 export type CariTipi = (typeof CariTipi)[keyof typeof CariTipi];
 
@@ -14,6 +15,7 @@ export const cariTipiEtiket: Record<CariTipi, string> = {
   Musteri: "Müşteri",
   Tedarikci: "Tedarikçi",
   HerIkisi: "Müşteri/Tedarikçi",
+  Harcama: "Harcama",
 };
 
 export const OdemeYonu = {
