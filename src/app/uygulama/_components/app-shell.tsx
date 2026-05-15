@@ -5,6 +5,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { useTheme } from "@/lib/theme";
+import { CommandPalette } from "@/components/ui/command-palette";
+import { ShortcutsHelp } from "@/components/ui/shortcuts-help";
+import { GlobalShortcuts } from "@/components/ui/global-shortcuts";
+import { modKeyLabel } from "@/lib/hooks/use-keyboard";
 import {
   Home,
   TrendingDown,
@@ -21,14 +25,18 @@ import {
   Repeat,
   Package,
   Settings,
+  UsersRound,
+  Search,
 } from "lucide-react";
 import { Button } from "@heroui/react";
 
 import type { ModuleFlags } from "@/lib/modules";
+import type { OrgRole } from "@/lib/org";
 
 interface AppShellProps {
   user: { name: string; email: string; image: string | null };
   moduller: ModuleFlags;
+  org: { id: string; ad: string; role: OrgRole };
   children: React.ReactNode;
 }
 
@@ -48,7 +56,7 @@ interface NavGroup {
  * Aktif modüllere göre nav grupları üretir.
  * Çekirdek (Anasayfa/Alacaklar/Borçlar/Profiller/Ayarlar) her zaman gelir.
  */
-function buildNavGroups(moduller: ModuleFlags): NavGroup[] {
+function buildNavGroups(moduller: ModuleFlags, role: OrgRole): NavGroup[] {
   const muhasebe: NavItem[] = [
     { href: "/uygulama/alacaklar", label: "Alacaklar", icon: TrendingDown },
     { href: "/uygulama/borclar", label: "Borçlar", icon: TrendingUp },
@@ -92,6 +100,13 @@ function buildNavGroups(moduller: ModuleFlags): NavGroup[] {
       href: "/uygulama/hatirlaticilar",
       label: "Hatırlatıcılar",
       icon: Bell,
+    });
+  }
+  if (role === "Owner" || role === "Admin") {
+    kisisel.push({
+      href: "/uygulama/ayarlar/ekibim",
+      label: "Ekibim",
+      icon: UsersRound,
     });
   }
   kisisel.push({
@@ -265,6 +280,50 @@ export function AppShell({ user, moduller, org, children }: AppShellProps) {
             </span>
           </div>
           <div className="flex items-center gap-2">
+            {/* Komut paleti tetikleyici — masaüstünde görünür */}
+            <button
+              onClick={() => {
+                window.dispatchEvent(
+                  new KeyboardEvent("keydown", {
+                    key: "k",
+                    metaKey: true,
+                    ctrlKey: true,
+                  }),
+                );
+              }}
+              className="hidden items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs transition-colors hover:bg-black/[0.02] md:flex dark:hover:bg-white/[0.03]"
+              style={{
+                background: "var(--surface)",
+                borderColor: "var(--border-strong)",
+                color: "var(--text-muted)",
+              }}
+              aria-label="Komut paleti"
+            >
+              <Search size={13} />
+              <span>Ara veya komut</span>
+              <span className="flex items-center gap-0.5">
+                <kbd
+                  className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded border px-1 font-mono text-[10px]"
+                  style={{
+                    background: "var(--surface-muted)",
+                    borderColor: "var(--border)",
+                    color: "var(--text-muted)",
+                  }}
+                >
+                  {modKeyLabel()}
+                </kbd>
+                <kbd
+                  className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded border px-1 font-mono text-[10px]"
+                  style={{
+                    background: "var(--surface-muted)",
+                    borderColor: "var(--border)",
+                    color: "var(--text-muted)",
+                  }}
+                >
+                  K
+                </kbd>
+              </span>
+            </button>
             <Button
               variant="ghost"
               size="sm"
@@ -272,7 +331,6 @@ export function AppShell({ user, moduller, org, children }: AppShellProps) {
               onPress={toggleTheme}
               aria-label="Temayı değiştir"
             >
-              {/* mounted false iken iki ikonu da göstermiyoruz — hydration mismatch önler */}
               {mounted ? (
                 resolvedTheme === "dark" ? (
                   <Sun size={16} />
@@ -288,6 +346,11 @@ export function AppShell({ user, moduller, org, children }: AppShellProps) {
 
         <main className="flex-1 px-4 py-6 md:px-8">{children}</main>
       </div>
+
+      {/* Klavye + Komut paleti */}
+      <CommandPalette />
+      <ShortcutsHelp />
+      <GlobalShortcuts />
     </div>
   );
 }

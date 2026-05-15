@@ -18,6 +18,9 @@ import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Select, TextInput } from "@/components/ui/form-field";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { BulkActionBar, deleteBulkAction } from "@/components/ui/bulk-action-bar";
+import { useBulkSelect } from "@/lib/hooks/use-bulk-select";
+import { bulkDeleteOdemeNotlari } from "@/lib/bulk-actions";
 import { OdemeNotuDialog } from "./odeme-notu-dialog";
 import {
   deleteOdemeNotu,
@@ -105,6 +108,23 @@ export function OdemeNotuList({
   const [deleting, setDeleting] = useState(false);
   const [tahsilTarget, setTahsilTarget] = useState<OdemeNotuRow | null>(null);
   const [tahsiling, setTahsiling] = useState(false);
+
+  // Bulk
+  const bulk = useBulkSelect(items);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  async function onBulkDelete() {
+    setBulkDeleting(true);
+    const r = await bulkDeleteOdemeNotlari(bulk.selectedIds as number[]);
+    setBulkDeleting(false);
+    if (r.ok) {
+      toast.success(`${r.count} kayıt silindi`);
+      bulk.clear();
+      setBulkDeleteOpen(false);
+      router.refresh();
+    } else toast.error(r.error);
+  }
 
   function openYeni() {
     setEditing(null);
@@ -248,6 +268,18 @@ export function OdemeNotuList({
                 }}
               >
                 <tr>
+                  <th className="w-8 px-2 py-3">
+                    <input
+                      type="checkbox"
+                      checked={bulk.isAllSelected}
+                      onChange={() =>
+                        bulk.isAllSelected ? bulk.clear() : bulk.selectAll()
+                      }
+                      className="size-4 cursor-pointer rounded"
+                      style={{ accentColor: "var(--accent)" }}
+                      aria-label="Hepsini seç"
+                    />
+                  </th>
                   <th className="px-4 py-3 font-medium">Başlık</th>
                   <th className="px-4 py-3 font-medium">Profil</th>
                   <th className="px-4 py-3 font-medium">Vade</th>
@@ -273,8 +305,21 @@ export function OdemeNotuList({
                       style={{
                         borderTop:
                           i === 0 ? "none" : "1px solid var(--border)",
+                        background: bulk.isSelected(o.id)
+                          ? "var(--surface-muted)"
+                          : undefined,
                       }}
                     >
+                      <td className="w-8 px-2 py-3">
+                        <input
+                          type="checkbox"
+                          checked={bulk.isSelected(o.id)}
+                          onChange={() => bulk.toggle(o.id)}
+                          className="size-4 cursor-pointer rounded"
+                          style={{ accentColor: "var(--accent)" }}
+                          aria-label={`${o.baslik} seç`}
+                        />
+                      </td>
                       <td className="px-4 py-3">
                         <div className="font-medium">{o.baslik}</div>
                         {o.aciklama && (
@@ -429,6 +474,31 @@ export function OdemeNotuList({
         isLoading={tahsiling}
         onCancel={() => setTahsilTarget(null)}
         onConfirm={onConfirmTahsil}
+      />
+
+      <ConfirmDialog
+        isOpen={bulkDeleteOpen}
+        title={`${bulk.selectedCount} kayıt silinsin mi?`}
+        description="Bu işlem geri alınamaz."
+        confirmText="Seçilenleri Sil"
+        variant="danger"
+        isLoading={bulkDeleting}
+        onCancel={() => setBulkDeleteOpen(false)}
+        onConfirm={onBulkDelete}
+      />
+
+      <BulkActionBar
+        selectedCount={bulk.selectedCount}
+        totalCount={bulk.totalCount}
+        onClear={bulk.clear}
+        onSelectAll={bulk.selectAll}
+        actions={[
+          deleteBulkAction(
+            async () => setBulkDeleteOpen(true),
+            bulk.selectedCount,
+            bulkDeleting,
+          ),
+        ]}
       />
     </>
   );

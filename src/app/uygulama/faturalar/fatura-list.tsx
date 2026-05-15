@@ -19,6 +19,9 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Select, TextInput } from "@/components/ui/form-field";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { StatCard } from "@/components/ui/stat-card";
+import { BulkActionBar, deleteBulkAction } from "@/components/ui/bulk-action-bar";
+import { useBulkSelect } from "@/lib/hooks/use-bulk-select";
+import { bulkDeleteFaturalar } from "@/lib/bulk-actions";
 import { FaturaDialog } from "./fatura-dialog";
 import { deleteFatura } from "./actions";
 import {
@@ -95,6 +98,23 @@ export function FaturaList({ items, cariler, stats, sonrakiNo }: Props) {
   const [editing, setEditing] = useState<FaturaRow | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<FaturaRow | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Bulk
+  const bulk = useBulkSelect(items);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  async function onBulkDelete() {
+    setBulkDeleting(true);
+    const r = await bulkDeleteFaturalar(bulk.selectedIds as number[]);
+    setBulkDeleting(false);
+    if (r.ok) {
+      toast.success(`${r.count} fatura silindi`);
+      bulk.clear();
+      setBulkDeleteOpen(false);
+      router.refresh();
+    } else toast.error(r.error);
+  }
 
   function openYeni() {
     setEditing(null);
@@ -231,6 +251,18 @@ export function FaturaList({ items, cariler, stats, sonrakiNo }: Props) {
                 }}
               >
                 <tr>
+                  <th className="w-8 px-2 py-3">
+                    <input
+                      type="checkbox"
+                      checked={bulk.isAllSelected}
+                      onChange={() =>
+                        bulk.isAllSelected ? bulk.clear() : bulk.selectAll()
+                      }
+                      className="size-4 cursor-pointer rounded"
+                      style={{ accentColor: "var(--accent)" }}
+                      aria-label="Hepsini seç"
+                    />
+                  </th>
                   <th className="px-4 py-3 font-medium">Fatura No</th>
                   <th className="px-4 py-3 font-medium">Tarih</th>
                   <th className="px-4 py-3 font-medium">Profil</th>
@@ -251,8 +283,21 @@ export function FaturaList({ items, cariler, stats, sonrakiNo }: Props) {
                       style={{
                         borderTop:
                           i === 0 ? "none" : "1px solid var(--border)",
+                        background: bulk.isSelected(f.id)
+                          ? "var(--surface-muted)"
+                          : undefined,
                       }}
                     >
+                      <td className="w-8 px-2 py-3">
+                        <input
+                          type="checkbox"
+                          checked={bulk.isSelected(f.id)}
+                          onChange={() => bulk.toggle(f.id)}
+                          className="size-4 cursor-pointer rounded"
+                          style={{ accentColor: "var(--accent)" }}
+                          aria-label={`${f.faturaNo} seç`}
+                        />
+                      </td>
                       <td className="px-4 py-3 font-mono text-xs font-semibold">
                         <span className="inline-flex items-center gap-1">
                           {f.faturaNo}
@@ -378,6 +423,31 @@ export function FaturaList({ items, cariler, stats, sonrakiNo }: Props) {
         isLoading={deleting}
         onCancel={() => setDeleteTarget(null)}
         onConfirm={onConfirmDelete}
+      />
+
+      <ConfirmDialog
+        isOpen={bulkDeleteOpen}
+        title={`${bulk.selectedCount} fatura silinsin mi?`}
+        description="Bu işlem geri alınamaz."
+        confirmText="Seçilenleri Sil"
+        variant="danger"
+        isLoading={bulkDeleting}
+        onCancel={() => setBulkDeleteOpen(false)}
+        onConfirm={onBulkDelete}
+      />
+
+      <BulkActionBar
+        selectedCount={bulk.selectedCount}
+        totalCount={bulk.totalCount}
+        onClear={bulk.clear}
+        onSelectAll={bulk.selectAll}
+        actions={[
+          deleteBulkAction(
+            async () => setBulkDeleteOpen(true),
+            bulk.selectedCount,
+            bulkDeleting,
+          ),
+        ]}
       />
     </>
   );

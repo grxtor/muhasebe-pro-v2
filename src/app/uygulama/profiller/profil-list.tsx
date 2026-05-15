@@ -18,6 +18,9 @@ import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Select, TextInput } from "@/components/ui/form-field";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { BulkActionBar, deleteBulkAction } from "@/components/ui/bulk-action-bar";
+import { useBulkSelect } from "@/lib/hooks/use-bulk-select";
+import { bulkDeleteProfiller } from "@/lib/bulk-actions";
 import { ProfilDialog } from "./profil-dialog";
 import { deleteProfil } from "./actions";
 import {
@@ -95,6 +98,25 @@ export function ProfilList({ profiller, sonrakiKod, tumEtiketler }: Props) {
   // Delete state
   const [deleteTarget, setDeleteTarget] = useState<ProfilRow | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Bulk select
+  const bulk = useBulkSelect(profiller);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  async function onBulkDelete() {
+    setBulkDeleting(true);
+    const r = await bulkDeleteProfiller(bulk.selectedIds as number[]);
+    setBulkDeleting(false);
+    if (r.ok) {
+      toast.success(`${r.count} profil silindi`);
+      bulk.clear();
+      setBulkDeleteOpen(false);
+      router.refresh();
+    } else {
+      toast.error(r.error);
+    }
+  }
 
   function openYeni() {
     setEditingProfil(null);
@@ -203,6 +225,18 @@ export function ProfilList({ profiller, sonrakiKod, tumEtiketler }: Props) {
                 }}
               >
                 <tr>
+                  <th className="w-8 px-2 py-3">
+                    <input
+                      type="checkbox"
+                      checked={bulk.isAllSelected}
+                      onChange={() =>
+                        bulk.isAllSelected ? bulk.clear() : bulk.selectAll()
+                      }
+                      className="size-4 cursor-pointer rounded"
+                      style={{ accentColor: "var(--accent)" }}
+                      aria-label="Hepsini seç"
+                    />
+                  </th>
                   <th className="px-4 py-3 font-medium">Kod</th>
                   <th className="px-4 py-3 font-medium">Ünvan</th>
                   <th className="px-4 py-3 font-medium">Tip</th>
@@ -219,8 +253,21 @@ export function ProfilList({ profiller, sonrakiKod, tumEtiketler }: Props) {
                     style={{
                       borderTop:
                         i === 0 ? "none" : "1px solid var(--border)",
+                      background: bulk.isSelected(p.id)
+                        ? "var(--surface-muted)"
+                        : undefined,
                     }}
                   >
+                    <td className="w-8 px-2 py-3">
+                      <input
+                        type="checkbox"
+                        checked={bulk.isSelected(p.id)}
+                        onChange={() => bulk.toggle(p.id)}
+                        className="size-4 cursor-pointer rounded"
+                        style={{ accentColor: "var(--accent)" }}
+                        aria-label={`${p.unvan} seç`}
+                      />
+                    </td>
                     <td className="px-4 py-3 font-mono text-xs" style={{ color: "var(--text-muted)" }}>
                       {p.kod}
                     </td>
@@ -352,6 +399,31 @@ export function ProfilList({ profiller, sonrakiKod, tumEtiketler }: Props) {
         isLoading={deleting}
         onCancel={() => setDeleteTarget(null)}
         onConfirm={onConfirmDelete}
+      />
+
+      <ConfirmDialog
+        isOpen={bulkDeleteOpen}
+        title={`${bulk.selectedCount} profili silelim mi?`}
+        description="Faturası olan profiller atlanır, geriye kalanlar silinir. Bu işlem geri alınamaz."
+        confirmText="Seçilenleri Sil"
+        variant="danger"
+        isLoading={bulkDeleting}
+        onCancel={() => setBulkDeleteOpen(false)}
+        onConfirm={onBulkDelete}
+      />
+
+      <BulkActionBar
+        selectedCount={bulk.selectedCount}
+        totalCount={bulk.totalCount}
+        onClear={bulk.clear}
+        onSelectAll={bulk.selectAll}
+        actions={[
+          deleteBulkAction(
+            async () => setBulkDeleteOpen(true),
+            bulk.selectedCount,
+            bulkDeleting,
+          ),
+        ]}
       />
     </>
   );
