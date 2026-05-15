@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useState,
+  useLayoutEffect,
 } from "react";
 
 export type Theme = "light" | "dark" | "system";
@@ -38,19 +39,18 @@ function applyDom(resolved: ResolvedTheme) {
   root.style.colorScheme = resolved;
 }
 
-/**
- * Hafif, next-themes'siz tema yönetimi.
- *
- * Flash-of-unstyled-theme önlemek için layout.tsx head'inde
- * dangerouslySetInnerHTML ile inline script çalıştırıyoruz; o script
- * React hydration'dan ÖNCE `.dark` class'ını ekliyor.
- */
+// SSR'da useLayoutEffect uyarı verir; client'ta useLayoutEffect kullan ki
+// hydration ile ilk paint arasında tema doğru olsun (flash minimum).
+const useIsomorphicLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>("system");
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>("light");
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
+  // İlk paint'ten ÖNCE çalıştır (useLayoutEffect) — flash en az
+  useIsomorphicLayoutEffect(() => {
     const stored =
       (localStorage.getItem(STORAGE_KEY) as Theme | null) ?? "system";
     setThemeState(stored);
@@ -58,23 +58,28 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const resolve = (t: Theme): ResolvedTheme =>
       t === "system" ? getSystemTheme() : t;
 
-    setResolvedTheme(resolve(stored));
+    const initial = resolve(stored);
+    setResolvedTheme(initial);
+    applyDom(initial);
     setMounted(true);
+  }, []);
 
-    // Sistem teması değişirse `system` modunda otomatik takip et
+  // System theme değişikliklerini izle
+  useEffect(() => {
+    if (!mounted) return;
     const media = window.matchMedia("(prefers-color-scheme: dark)");
     const onChange = () => {
       const current =
         (localStorage.getItem(STORAGE_KEY) as Theme | null) ?? "system";
       if (current === "system") {
-        const r = resolve(current);
+        const r = current === "system" ? getSystemTheme() : current;
         setResolvedTheme(r);
         applyDom(r);
       }
     };
     media.addEventListener("change", onChange);
     return () => media.removeEventListener("change", onChange);
-  }, []);
+  }, [mounted]);
 
   const setTheme = useCallback((t: Theme) => {
     setThemeState(t);
@@ -100,7 +105,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 export function useTheme(): ThemeContextValue {
   const ctx = useContext(ThemeContext);
   if (!ctx) {
-    // Provider dışı kullanıma karşı güvenli fallback
     return {
       theme: "system",
       resolvedTheme: "light",
@@ -111,20 +115,3 @@ export function useTheme(): ThemeContextValue {
   }
   return ctx;
 }
-
-/**
- * Inline script — `<head>`e dangerouslySetInnerHTML ile basılır,
- * hydration'dan önce class'ı setler. Flash önler, React script-tag
- * uyarısı vermez (çünkü innerHTML olarak konuyor, JSX <script> değil).
- */
-export const themeBootstrapScript = `
-(function(){try{
-  var k='${STORAGE_KEY}';
-  var s=localStorage.getItem(k);
-  var t=s||'system';
-  var d=t==='dark'||((t==='system')&&window.matchMedia('(prefers-color-scheme: dark)').matches);
-  var r=document.documentElement;
-  if(d){r.classList.add('dark');r.setAttribute('data-theme','dark');r.style.colorScheme='dark';}
-  else{r.setAttribute('data-theme','light');r.style.colorScheme='light';}
-}catch(e){}})();
-`.trim();

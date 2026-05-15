@@ -1,8 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
-import Script from "next/script";
 import { Providers } from "./providers";
-import { themeBootstrapScript } from "@/lib/theme";
 import "./globals.css";
 
 const inter = Inter({
@@ -54,15 +52,6 @@ export default function RootLayout({
       className={`${inter.variable} h-full`}
     >
       <body className="min-h-dvh font-sans antialiased">
-        {/*
-          Tema flash önleyici — hydration'dan ÖNCE .dark class'ını ekler.
-          next/script + beforeInteractive: React'in script tag uyarısı gelmez.
-        */}
-        <Script
-          id="theme-bootstrap"
-          strategy="beforeInteractive"
-          dangerouslySetInnerHTML={{ __html: themeBootstrapScript }}
-        />
         <Providers>{children}</Providers>
       </body>
     </html>
