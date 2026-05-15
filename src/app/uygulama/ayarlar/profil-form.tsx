@@ -143,10 +143,12 @@ export function ProfilForm({ initial }: Props) {
 export function SectionCard({
   title,
   description,
+  actions,
   children,
 }: {
   title: string;
   description?: string;
+  actions?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -158,14 +160,22 @@ export function SectionCard({
       }}
     >
       <header
-        className="border-b px-5 py-4"
+        className="flex items-start justify-between gap-4 border-b px-5 py-4"
         style={{ borderColor: "var(--border)" }}
       >
-        <h2 className="text-base font-semibold">{title}</h2>
-        {description && (
-          <p className="mt-0.5 text-sm" style={{ color: "var(--text-muted)" }}>
-            {description}
-          </p>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-base font-semibold">{title}</h2>
+          {description && (
+            <p
+              className="mt-0.5 text-sm"
+              style={{ color: "var(--text-muted)" }}
+            >
+              {description}
+            </p>
+          )}
+        </div>
+        {actions && (
+          <div className="flex shrink-0 items-center gap-2">{actions}</div>
         )}
       </header>
       <div className="px-5 py-5">{children}</div>

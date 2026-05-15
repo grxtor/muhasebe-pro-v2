@@ -120,30 +120,31 @@ export function EkibimList({
             ? "Yeni üye ekleyebilir, rolleri değiştirebilirsiniz."
             : "Sadece Sahip yeni üye ekleyebilir veya rolleri değiştirebilir."
         }`}
+        actions={
+          isOwner ? (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                onPress={() => setDialogOpen(true)}
+              >
+                <span className="inline-flex items-center gap-1.5">
+                  <UserPlus size={14} /> Direkt Ekle
+                </span>
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onPress={() => setInviteOpen(true)}
+              >
+                <span className="inline-flex items-center gap-1.5">
+                  <LinkIcon size={14} /> Davet Linki
+                </span>
+              </Button>
+            </>
+          ) : null
+        }
       >
-        {isOwner && (
-          <div className="mb-4 flex flex-wrap justify-end gap-2">
-            <Button
-              variant="ghost"
-              size="md"
-              onPress={() => setDialogOpen(true)}
-            >
-              <span className="inline-flex items-center gap-1.5">
-                <UserPlus size={15} /> Direkt Üye Ekle
-              </span>
-            </Button>
-            <Button
-              variant="primary"
-              size="md"
-              onPress={() => setInviteOpen(true)}
-            >
-              <span className="inline-flex items-center gap-1.5">
-                <LinkIcon size={15} /> Davet Linki Oluştur
-              </span>
-            </Button>
-          </div>
-        )}
-
         <ul className="space-y-2">
           {members.map((m) => {
             const badge = ROLE_BADGE[m.role] ?? ROLE_BADGE.Goruntuleyici;
@@ -287,45 +288,50 @@ export function EkibimList({
               return (
                 <li
                   key={inv.id}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3"
+                  className="grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-lg border p-3"
                   style={{
                     background: "var(--surface)",
                     borderColor: "var(--border)",
                   }}
                 >
-                  <div className="flex min-w-0 flex-1 items-center gap-3">
-                    <div
-                      className="grid size-10 place-items-center rounded-full"
-                      style={{
-                        background: "var(--surface-muted)",
-                        color: "var(--text-muted)",
-                      }}
-                    >
-                      <Mail size={16} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-medium">
+                  {/* Avatar */}
+                  <div
+                    className="grid size-10 place-items-center rounded-full"
+                    style={{
+                      background: "var(--surface-muted)",
+                      color: "var(--text-muted)",
+                    }}
+                  >
+                    <Mail size={16} />
+                  </div>
+
+                  {/* Email + rol badge + süre */}
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="truncate text-sm font-medium">
                         {inv.email}
-                      </div>
-                      <div
-                        className="mt-0.5 flex items-center gap-2 text-[11px]"
-                        style={{ color: "var(--text-soft)" }}
+                      </span>
+                      <span
+                        className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
+                        style={{ background: badge.bg, color: badge.color }}
                       >
-                        <Clock size={10} />
-                        {days > 0
-                          ? `${days} gün geçerli`
-                          : "bugün sona eriyor"}
-                      </div>
+                        <Shield size={10} />
+                        {ROLE_LABEL[inv.role] ?? inv.role}
+                      </span>
+                    </div>
+                    <div
+                      className="mt-1 flex items-center gap-1.5 text-[11px]"
+                      style={{ color: "var(--text-soft)" }}
+                    >
+                      <Clock size={10} />
+                      {days > 0
+                        ? `${days} gün sonra sona erer`
+                        : "bugün sona eriyor"}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
-                      style={{ background: badge.bg, color: badge.color }}
-                    >
-                      <Shield size={11} />
-                      {ROLE_LABEL[inv.role] ?? inv.role}
-                    </span>
+
+                  {/* Eylemler */}
+                  <div className="flex shrink-0 items-center gap-1.5">
                     <button
                       onClick={() => copyToClipboard(inv.url, inv.id)}
                       className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors hover:bg-black/5 dark:hover:bg-white/10"
@@ -350,6 +356,7 @@ export function EkibimList({
                       className="rounded-md p-1.5 transition-colors hover:bg-black/5 dark:hover:bg-white/10"
                       style={{ color: "var(--negative)" }}
                       title="Daveti iptal et"
+                      aria-label="Daveti iptal et"
                     >
                       <X size={14} />
                     </button>
