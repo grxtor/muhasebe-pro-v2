@@ -432,12 +432,14 @@ export function MasaustuPanel() {
               <div>
                 <div className="text-sm font-medium">
                   {updater.downloaded
-                    ? `v${updater.status.state === "downloaded" ? updater.status.version : ""} hazır`
-                    : updater.downloading
-                      ? `İndiriliyor — %${updater.status.state === "downloading" ? updater.status.percent : 0}`
-                      : updater.available
-                        ? "Güncelleme bulundu, iniyor…"
-                        : "En güncel sürümdesin"}
+                    ? `v${updater.status.state === "downloaded" ? updater.status.version : ""} hazır — kur butonuna bas`
+                    : updater.extracting
+                      ? "Hazırlanıyor…"
+                      : updater.downloading
+                        ? `İndiriliyor — %${updater.status.state === "downloading" ? updater.status.percent : 0}`
+                        : updater.available
+                          ? `v${updater.status.state === "available" ? updater.status.version : ""} bulundu — indirmek için tıkla`
+                          : "En güncel sürümdesin"}
                 </div>
                 <div
                   className="text-xs"
@@ -455,14 +457,26 @@ export function MasaustuPanel() {
                   onPress={() => void updater.install()}
                 >
                   <span className="inline-flex items-center gap-1.5">
-                    <RefreshCw size={13} /> Güncelle ve Yeniden Başlat
+                    <RefreshCw size={13} /> Kur ve Yeniden Başlat
+                  </span>
+                </Button>
+              ) : updater.available ? (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onPress={() => void updater.download()}
+                >
+                  <span className="inline-flex items-center gap-1.5">
+                    <Download size={13} /> Şimdi İndir
                   </span>
                 </Button>
               ) : (
                 <Button
                   variant="ghost"
                   size="sm"
-                  isDisabled={checking || updater.downloading}
+                  isDisabled={
+                    checking || updater.downloading || updater.extracting
+                  }
                   onPress={manualCheck}
                 >
                   <span className="inline-flex items-center gap-1.5">

@@ -17,10 +17,11 @@ export interface PlatformInfo {
 export type UpdateStatus =
   | { state: "idle" }
   | { state: "checking" }
-  | { state: "available"; version: string }
+  | { state: "available"; version: string; downloadUrl?: string }
   | { state: "not-available" }
-  | { state: "downloading"; percent: number }
-  | { state: "downloaded"; version: string }
+  | { state: "downloading"; percent: number; version: string }
+  | { state: "extracting"; version: string }
+  | { state: "downloaded"; version: string; extractedPath: string }
   | { state: "error"; message: string };
 
 export interface MuhasebeProApi {
@@ -43,10 +44,11 @@ export interface MuhasebeProApi {
   relaunch: () => void;
   quit: () => void;
   openExternal: (url: string) => Promise<boolean>;
-  // Auto-updater
+  // Auto-updater (custom Vencord-tarzı flow)
   getUpdateStatus: () => Promise<UpdateStatus>;
   checkForUpdates: () => Promise<{ ok: boolean; version?: string | null; error?: string }>;
-  installUpdate: () => Promise<void>;
+  downloadUpdate: () => Promise<{ ok: boolean; error?: string }>;
+  installUpdate: () => Promise<{ ok: boolean; error?: string } | void>;
   onUpdateStatus: (callback: (status: UpdateStatus) => void) => () => void;
 }
 

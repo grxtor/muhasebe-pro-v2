@@ -42,9 +42,10 @@ contextBridge.exposeInMainWorld("muhasebePro", {
   openExternal: (url: string) =>
     ipcRenderer.invoke("app:open-external", url),
 
-  // Otomatik güncelleme
+  // Otomatik güncelleme (custom Vencord-tarzı flow)
   getUpdateStatus: () => ipcRenderer.invoke("updater:get-status"),
   checkForUpdates: () => ipcRenderer.invoke("updater:check"),
+  downloadUpdate: () => ipcRenderer.invoke("updater:download"),
   installUpdate: () => ipcRenderer.invoke("updater:install"),
   onUpdateStatus: (callback: (status: unknown) => void) => {
     const listener = (_event: unknown, status: unknown) => callback(status);
