@@ -7,14 +7,53 @@
  *  - production fallback: https://muhasebe.oceanyazilim.com
  */
 
-import { app, BrowserWindow, Menu, shell, dialog, ipcMain, nativeImage } from "electron";
+import { app, BrowserWindow, Menu, shell, dialog, ipcMain, nativeImage, session } from "electron";
 import { join } from "node:path";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 
 const isDev = !app.isPackaged;
-const APP_URL =
-  process.env.APP_URL ??
-  (isDev ? "http://localhost:3000" : "https://muhasebe.oceanyazilim.com");
+const DEFAULT_APP_URL = "https://muhasebe.oceanyazilim.com";
+
+// User settings — basit JSON store (electron-store yerine sıfır bağımlılık)
+interface UserSettings {
+  appUrl?: string;
+  autoLaunch?: boolean;
+  zoomLevel?: number;
+  closeToTray?: boolean;
+}
+
+function getSettingsPath(): string {
+  const dir = app.getPath("userData");
+  mkdirSync(dir, { recursive: true });
+  return join(dir, "settings.json");
+}
+
+function loadSettings(): UserSettings {
+  try {
+    const raw = readFileSync(getSettingsPath(), "utf-8");
+    return JSON.parse(raw) as UserSettings;
+  } catch {
+    return {};
+  }
+}
+
+function saveSettings(s: UserSettings): void {
+  try {
+    writeFileSync(getSettingsPath(), JSON.stringify(s, null, 2), "utf-8");
+  } catch (err) {
+    console.error("[settings] yazılamadı:", err);
+  }
+}
+
+const settings = loadSettings();
+
+function getAppUrl(): string {
+  return (
+    process.env.APP_URL ??
+    settings.appUrl ??
+    (isDev ? "http://localhost:3000" : DEFAULT_APP_URL)
+  );
+}
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -77,22 +116,113 @@ function createWindow() {
     return { action: "allow" };
   });
 
+  // Zoom level varsa uygula
+  if (settings.zoomLevel != null) {
+    mainWindow.webContents.on("did-finish-load", () => {
+      mainWindow?.webContents.setZoomLevel(settings.zoomLevel ?? 0);
+    });
+  }
+
   // İlk yükleme
-  void mainWindow.loadURL(APP_URL);
+  void mainWindow.loadURL(getAppUrl());
 
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
 }
 
-// IPC: render process'ten "tekrar dene" isteği
+async function getCacheSize(): Promise<number> {
+  try {
+    const size = await session.defaultSession.getCacheSize();
+    return size;
+  } catch {
+    return 0;
+  }
+}
+
+// IPC handlers
 ipcMain.handle("app:reload", () => {
-  if (mainWindow) {
-    void mainWindow.loadURL(APP_URL);
+  if (mainWindow) void mainWindow.loadURL(getAppUrl());
+});
+
+ipcMain.handle("app:get-url", () => getAppUrl());
+
+ipcMain.handle("app:set-url", (_e, url: string) => {
+  try {
+    new URL(url);
+    settings.appUrl = url;
+    saveSettings(settings);
+    if (mainWindow) void mainWindow.loadURL(url);
+    return true;
+  } catch {
+    return false;
   }
 });
 
-ipcMain.handle("app:get-url", () => APP_URL);
+ipcMain.handle("app:get-version", () => app.getVersion());
+
+ipcMain.handle("app:get-platform-info", () => ({
+  platform: process.platform,
+  arch: process.arch,
+  electron: process.versions.electron,
+  chrome: process.versions.chrome,
+  node: process.versions.node,
+  appName: app.getName(),
+  appVersion: app.getVersion(),
+  userDataPath: app.getPath("userData"),
+  appPath: app.getAppPath(),
+}));
+
+ipcMain.handle("app:open-devtools", () => {
+  mainWindow?.webContents.openDevTools({ mode: "detach" });
+});
+
+ipcMain.handle("app:clear-cache", async () => {
+  await session.defaultSession.clearCache();
+  await session.defaultSession.clearStorageData({
+    storages: ["cachestorage", "shadercache", "serviceworkers"],
+  });
+});
+
+ipcMain.handle("app:get-cache-size", () => getCacheSize());
+
+ipcMain.handle("app:get-auto-launch", () => {
+  const ls = app.getLoginItemSettings();
+  return ls.openAtLogin;
+});
+
+ipcMain.handle("app:set-auto-launch", (_e, enabled: boolean) => {
+  app.setLoginItemSettings({ openAtLogin: enabled });
+  settings.autoLaunch = enabled;
+  saveSettings(settings);
+  return enabled;
+});
+
+ipcMain.handle("app:set-zoom", (_e, level: number) => {
+  const clamped = Math.max(-3, Math.min(3, level));
+  mainWindow?.webContents.setZoomLevel(clamped);
+  settings.zoomLevel = clamped;
+  saveSettings(settings);
+});
+
+ipcMain.handle("app:get-zoom", () => {
+  return mainWindow?.webContents.getZoomLevel() ?? 0;
+});
+
+ipcMain.on("app:minimize", () => mainWindow?.minimize());
+ipcMain.on("app:relaunch", () => {
+  app.relaunch();
+  app.exit(0);
+});
+ipcMain.on("app:quit", () => app.quit());
+
+ipcMain.handle("app:open-external", (_e, url: string) => {
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    void shell.openExternal(url);
+    return true;
+  }
+  return false;
+});
 
 // Custom menü — TR
 function buildMenu() {
@@ -170,7 +300,7 @@ function buildMenu() {
           label: "Bağlantıyı Test Et",
           click: async () => {
             try {
-              const url = new URL(APP_URL);
+              const url = new URL(getAppUrl());
               const res = await fetch(`${url.origin}/api/health`).catch(() => null);
               if (res?.ok) {
                 void dialog.showMessageBox({
@@ -215,14 +345,19 @@ app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
 
-// Güvenlik: HTTPS olmayan linkleri engelle (dev hariç)
+// Güvenlik: app URL'i dışına navigation harici tarayıcıya
 app.on("web-contents-created", (_event, contents) => {
   contents.on("will-navigate", (e, url) => {
-    const parsed = new URL(url);
-    const allowed = [new URL(APP_URL).origin, "http://localhost:3000"];
-    if (!allowed.includes(parsed.origin)) {
+    try {
+      const parsed = new URL(url);
+      const current = new URL(getAppUrl());
+      const allowed = [current.origin, "http://localhost:3000"];
+      if (!allowed.includes(parsed.origin)) {
+        e.preventDefault();
+        void shell.openExternal(url);
+      }
+    } catch {
       e.preventDefault();
-      void shell.openExternal(url);
     }
   });
 });

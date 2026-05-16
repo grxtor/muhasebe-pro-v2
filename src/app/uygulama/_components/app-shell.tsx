@@ -9,6 +9,7 @@ import { CommandPalette } from "@/components/ui/command-palette";
 import { ShortcutsHelp } from "@/components/ui/shortcuts-help";
 import { GlobalShortcuts } from "@/components/ui/global-shortcuts";
 import { modKeyLabel } from "@/lib/hooks/use-keyboard";
+import { useIsMacElectron } from "@/lib/hooks/use-electron";
 import {
   Home,
   TrendingDown,
@@ -155,6 +156,7 @@ export function AppShell({ user, moduller, org, children }: AppShellProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { resolvedTheme, toggleTheme, mounted } = useTheme();
+  const isMacElectron = useIsMacElectron();
 
   const navGroups = buildNavGroups(moduller, org.role);
 
@@ -174,7 +176,25 @@ export function AppShell({ user, moduller, org, children }: AppShellProps) {
           color: "var(--sidebar-text)",
         }}
       >
-        <div className="flex h-14 items-center gap-2 border-b border-white/5 px-5 text-base font-semibold tracking-tight" style={{ color: "var(--sidebar-text-strong)" }}>
+        {/* macOS Electron'da pencere kontrolleri için drag region */}
+        {isMacElectron && (
+          <div
+            className="h-7 shrink-0"
+            style={{
+              ["WebkitAppRegion" as never]: "drag",
+            } as React.CSSProperties}
+            aria-hidden
+          />
+        )}
+        <div
+          className="flex h-14 items-center gap-2 border-b border-white/5 px-5 text-base font-semibold tracking-tight"
+          style={{
+            color: "var(--sidebar-text-strong)",
+            ...(isMacElectron
+              ? ({ ["WebkitAppRegion" as never]: "drag" } as React.CSSProperties)
+              : {}),
+          }}
+        >
           <span
             aria-hidden
             className="grid size-7 place-items-center rounded-md text-sm"
@@ -282,6 +302,18 @@ export function AppShell({ user, moduller, org, children }: AppShellProps) {
 
       {/* Main */}
       <div className="flex min-w-0 flex-1 flex-col">
+        {/* macOS Electron — topbar üstüne drag region */}
+        {isMacElectron && (
+          <div
+            className="h-7 shrink-0 border-b"
+            style={{
+              background: "var(--surface)",
+              borderColor: "var(--border)",
+              ["WebkitAppRegion" as never]: "drag",
+            } as React.CSSProperties}
+            aria-hidden
+          />
+        )}
         {/* Topbar */}
         <header
           className="sticky top-0 z-40 flex h-14 items-center justify-between border-b px-4 md:px-6"

@@ -11,13 +11,16 @@ import {
   History,
   ToggleRight,
   UsersRound,
+  Monitor,
 } from "lucide-react";
+import { useIsElectron } from "@/lib/hooks/use-electron";
 
 interface NavItem {
   href: string;
   label: string;
   icon: React.ComponentType<{ size?: number }>;
   exact?: boolean;
+  electronOnly?: boolean;
 }
 
 interface NavGroup {
@@ -34,6 +37,12 @@ const groups: NavGroup[] = [
       { href: "/uygulama/ayarlar", label: "Profil", icon: UserIcon, exact: true },
       { href: "/uygulama/ayarlar/gorunum", label: "Görünüm", icon: Palette },
       { href: "/uygulama/ayarlar/bildirim", label: "Bildirimler", icon: Bell },
+      {
+        href: "/uygulama/ayarlar/masaustu",
+        label: "Masaüstü",
+        icon: Monitor,
+        electronOnly: true,
+      },
     ],
   },
   {
@@ -63,51 +72,59 @@ const groups: NavGroup[] = [
 
 export function AyarlarNav() {
   const pathname = usePathname();
+  const isElectron = useIsElectron();
+
   return (
     <nav className="space-y-5">
-      {groups.map((group) => (
-        <div key={group.label}>
-          <div className="mb-1 px-2">
-            <div
-              className="text-[10px] font-semibold uppercase tracking-wider"
-              style={{ color: "var(--text-soft)" }}
-            >
-              {group.label}
+      {groups.map((group) => {
+        const visibleItems = group.items.filter(
+          (i) => !i.electronOnly || isElectron,
+        );
+        if (visibleItems.length === 0) return null;
+        return (
+          <div key={group.label}>
+            <div className="mb-1 px-2">
+              <div
+                className="text-[10px] font-semibold uppercase tracking-wider"
+                style={{ color: "var(--text-soft)" }}
+              >
+                {group.label}
+              </div>
+              <div
+                className="text-[11px]"
+                style={{ color: "var(--text-soft)" }}
+              >
+                {group.description}
+              </div>
             </div>
-            <div
-              className="text-[11px]"
-              style={{ color: "var(--text-soft)" }}
-            >
-              {group.description}
+            <div className="space-y-0.5">
+              {visibleItems.map((item) => {
+                const Icon = item.icon;
+                const active = item.exact
+                  ? pathname === item.href
+                  : pathname.startsWith(item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors"
+                    style={{
+                      background: active
+                        ? "var(--surface-muted)"
+                        : "transparent",
+                      color: active ? "var(--text)" : "var(--text-muted)",
+                      fontWeight: active ? 500 : 400,
+                    }}
+                  >
+                    <Icon size={15} />
+                    {item.label}
+                  </Link>
+                );
+              })}
             </div>
           </div>
-          <div className="space-y-0.5">
-            {group.items.map((item) => {
-              const Icon = item.icon;
-              const active = item.exact
-                ? pathname === item.href
-                : pathname.startsWith(item.href);
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors"
-                  style={{
-                    background: active
-                      ? "var(--surface-muted)"
-                      : "transparent",
-                    color: active ? "var(--text)" : "var(--text-muted)",
-                    fontWeight: active ? 500 : 400,
-                  }}
-                >
-                  <Icon size={15} />
-                  {item.label}
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </nav>
   );
 }
