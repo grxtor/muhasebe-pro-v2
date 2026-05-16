@@ -94,13 +94,27 @@ function setupAutoUpdater(): void {
     });
   });
 
-  // Açılışta + her 2 saatte bir kontrol
+  // Açılışta hemen kontrol
   void autoUpdater.checkForUpdatesAndNotify().catch((err) => {
     log.error("[updater] ilk kontrol başarısız:", err);
   });
+
+  // Periodic check — 1 dakikada bir (GitHub releases.atom cache-friendly,
+  // bandwidth düşük; rate limit anonim 60/saat üzerinde — fazlasıyla altında)
   setInterval(() => {
     void autoUpdater.checkForUpdates().catch(() => {});
-  }, 2 * 60 * 60 * 1000);
+  }, 60 * 1000);
+}
+
+// Throttle helper — focus event'i çok sık tetikleniyor; 30 sn cooldown
+let lastFocusCheck = 0;
+function focusCheckThrottled(): void {
+  if (isDev) return;
+  const now = Date.now();
+  if (now - lastFocusCheck < 30_000) return;
+  lastFocusCheck = now;
+  log.info("[updater] focus check");
+  void autoUpdater.checkForUpdates().catch(() => {});
 }
 
 const isDev = !app.isPackaged;
@@ -226,6 +240,11 @@ function createWindow() {
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
+
+  // Pencere odaklanınca güncellemeyi kontrol et (throttle'lı).
+  // Kullanıcı app'e tekrar geçince ANINDA "yeni sürüm var" görsün.
+  mainWindow.on("focus", focusCheckThrottled);
+  mainWindow.on("show", focusCheckThrottled);
 }
 
 async function getCacheSize(): Promise<number> {
