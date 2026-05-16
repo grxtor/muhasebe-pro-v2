@@ -1,6 +1,6 @@
 {
   "name": "muhasebe-pro-v2",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "private": true,
   "main": "dist-electron/main.js",
   "scripts": {
@@ -42,6 +42,12 @@
       "target": [
         {
           "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
           "arch": [
             "arm64"
           ]
