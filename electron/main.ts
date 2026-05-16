@@ -414,11 +414,23 @@ function buildMenu() {
 }
 
 // HTTP cache boyutunu artır (varsayılan ~80MB) — sayfa geçişlerinde
-// CSS/JS/asset'ler local'den okunur, network round-trip yok
-app.commandLine.appendSwitch("disk-cache-size", "524288000"); // 500 MB
+// CSS/JS/HTML local'den okunur, network round-trip yok
+// 2 GB — Discord ~1 GB kullanıyor, biz bol bol cache'leyebiliriz
+app.commandLine.appendSwitch("disk-cache-size", "2147483648"); // 2 GB
+app.commandLine.appendSwitch("media-cache-size", "536870912"); // 512 MB media
 
-// Donanım hızlandırma + V8 optimizasyonları
-app.commandLine.appendSwitch("enable-features", "CalculateNativeWinOcclusion");
+// V8 heap size — büyük dataset'leri RAM'de tutmak için
+// Default ~1.4 GB, biz 4 GB'a çıkaralım (Discord ~2-3 GB kullanır)
+app.commandLine.appendSwitch("js-flags", "--max-old-space-size=4096");
+
+// Donanım hızlandırma + render optimizasyonları
+app.commandLine.appendSwitch(
+  "enable-features",
+  "CalculateNativeWinOcclusion,CanvasOopRasterization,UseSkiaRenderer",
+);
+// Arka plan tab throttling kapalı — uygulama dock'tayken bile cache fresh kalır
+app.commandLine.appendSwitch("disable-background-timer-throttling");
+app.commandLine.appendSwitch("disable-renderer-backgrounding");
 
 app.whenReady().then(async () => {
   // Sunucuya önceden bağlan — DNS + TLS handshake'i ilk navigation'dan
