@@ -1,4 +1,13 @@
-import type { InputHTMLAttributes, TextareaHTMLAttributes, SelectHTMLAttributes, ReactNode } from "react";
+"use client";
+
+import type {
+  InputHTMLAttributes,
+  TextareaHTMLAttributes,
+  SelectHTMLAttributes,
+  ReactNode,
+} from "react";
+import { Select as CustomSelect } from "./select";
+import { DateInput } from "./date-input";
 
 const baseInputClass =
   "w-full rounded-lg border px-3 py-2.5 text-sm outline-none transition-colors focus:ring-2 focus:ring-offset-0";
@@ -41,10 +50,48 @@ export function Label({ htmlFor, children, required, hint }: LabelProps) {
 
 export type TextInputProps = InputHTMLAttributes<HTMLInputElement>;
 
-export function TextInput({ className, ...props }: TextInputProps) {
+/**
+ * TextInput — type="date" verilirse otomatik olarak custom DateInput'a
+ * yönlendirilir (chrome native date picker yerine güzel custom popover).
+ */
+export function TextInput({ className, type, ...props }: TextInputProps) {
+  if (type === "date") {
+    const {
+      value,
+      defaultValue,
+      onChange,
+      min,
+      max,
+      ...rest
+    } = props;
+    return (
+      <DateInput
+        value={typeof value === "string" ? value : undefined}
+        defaultValue={
+          typeof defaultValue === "string" ? defaultValue : undefined
+        }
+        onChange={(e) => {
+          // Native onChange synthetic event'ine uyumlu olsun diye yeniden paketle
+          onChange?.({
+            target: { name: e.target.name, value: e.target.value },
+          } as React.ChangeEvent<HTMLInputElement>);
+        }}
+        min={typeof min === "string" ? min : undefined}
+        max={typeof max === "string" ? max : undefined}
+        name={rest.name}
+        id={rest.id}
+        required={rest.required}
+        disabled={rest.disabled}
+        className={className}
+        placeholder={typeof rest.placeholder === "string" ? rest.placeholder : undefined}
+        autoFocus={rest.autoFocus}
+      />
+    );
+  }
   return (
     <input
       {...props}
+      type={type}
       className={`${baseInputClass} ${className ?? ""}`}
       style={baseInputStyle}
     />
@@ -65,15 +112,30 @@ export function TextArea({ className, ...props }: TextAreaProps) {
 
 export type SelectProps = SelectHTMLAttributes<HTMLSelectElement>;
 
-export function Select({ className, children, ...props }: SelectProps) {
+/**
+ * Select — native <option> children'larını kabul eder ama custom dropdown
+ * popover'la render eder (Chrome native dropdown yerine).
+ */
+export function Select({ className, children, value, defaultValue, onChange, ...rest }: SelectProps) {
   return (
-    <select
-      {...props}
-      className={`${baseInputClass} ${className ?? ""}`}
-      style={baseInputStyle}
+    <CustomSelect
+      className={className}
+      value={typeof value === "string" ? value : undefined}
+      defaultValue={
+        typeof defaultValue === "string" ? defaultValue : undefined
+      }
+      onChange={(e) => {
+        onChange?.({
+          target: { name: e.target.name, value: e.target.value },
+        } as React.ChangeEvent<HTMLSelectElement>);
+      }}
+      name={rest.name}
+      id={rest.id}
+      required={rest.required}
+      disabled={rest.disabled}
     >
       {children}
-    </select>
+    </CustomSelect>
   );
 }
 
