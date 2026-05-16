@@ -13,11 +13,17 @@ import log from "electron-log";
 import { join } from "node:path";
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 
-// Logger setup — electron-updater log'larını ayrı dosyaya yazsın
+// Logger setup
 log.transports.file.level = "info";
 autoUpdater.logger = log;
-autoUpdater.autoDownload = true;
-autoUpdater.autoInstallOnAppQuit = false; // Kullanıcı butona basana kadar bekle
+// Ad-hoc imza (Apple Developer hesabı yok) → Squirrel.Mac auto-install
+// code signature validation'da takılıyor. Bu yüzden:
+// - Yeni sürüm tespit ederiz ama otomatik indirmeyiz
+// - Kullanıcıya banner gösterir, GitHub Release sayfasını tarayıcıda açarız
+// - User manuel DMG indirir + kurar (xattr -cr otomatik olmadığı için
+//   ilk açılışta sağ tık → Aç gerekir)
+autoUpdater.autoDownload = false;
+autoUpdater.autoInstallOnAppQuit = false;
 
 type UpdateStatus =
   | { state: "idle" }
@@ -474,8 +480,22 @@ ipcMain.handle("updater:check", async () => {
 });
 
 ipcMain.handle("updater:install", () => {
-  // İndirilen güncellemeyi uygula — app kapanır, yeni sürümle açılır
-  autoUpdater.quitAndInstall(false, true);
+  // Ad-hoc imzalı build'lerde Squirrel.Mac signature validation fail eder.
+  // Bu yüzden auto-install yerine GitHub release sayfasını tarayıcıda açıyoruz.
+  // Kullanıcı manuel DMG indirir.
+  if (updateStatus.state === "available" || updateStatus.state === "downloaded") {
+    const version =
+      updateStatus.state === "available"
+        ? updateStatus.version
+        : updateStatus.version;
+    void shell.openExternal(
+      `https://github.com/grxtor/muhasebe-pro-v2/releases/tag/v${version}`,
+    );
+  } else {
+    void shell.openExternal(
+      "https://github.com/grxtor/muhasebe-pro-v2/releases/latest",
+    );
+  }
 });
 
 app.on("window-all-closed", () => {

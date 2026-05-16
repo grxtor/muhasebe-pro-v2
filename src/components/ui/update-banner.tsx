@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Download, Sparkles, RefreshCw, AlertCircle, X } from "lucide-react";
+import { Download, Sparkles, RefreshCw, AlertCircle, X, ExternalLink } from "lucide-react";
 import { Button } from "@heroui/react";
 import { useUpdater } from "@/lib/hooks/use-updater";
 import { useIsElectron } from "@/lib/hooks/use-electron";
@@ -37,45 +37,45 @@ export function UpdateBanner() {
     );
   }
 
-  // Güncelleme bulundu — otomatik indiriyor
+  // Güncelleme bulundu — manuel indirme
+  // (Ad-hoc imza yüzünden otomatik kurulum çalışmıyor, kullanıcı
+  // GitHub release sayfasından DMG indirir)
   if (status.state === "available") {
     return (
       <Banner
-        tone="info"
+        tone="success"
         icon={<Sparkles size={16} />}
+        action={
+          <Button
+            variant="primary"
+            size="sm"
+            onPress={() => void install()}
+          >
+            <span className="inline-flex items-center gap-1.5">
+              <ExternalLink size={13} /> İndirme Sayfasını Aç
+            </span>
+          </Button>
+        }
       >
-        <strong>Yeni sürüm bulundu</strong> ({status.version}) — arka planda
-        indiriliyor…
+        <strong>Yeni sürüm: v{status.version}</strong> — tarayıcıda
+        açılan sayfadan DMG'yi indir ve kur.
       </Banner>
     );
   }
 
-  // İndiriliyor — yüzde
+  // (Auto-download kapalı; downloading state oluşmuyor ama legacy compat)
   if (status.state === "downloading") {
     return (
       <Banner
         tone="info"
-        icon={
-          <Download size={16} className="animate-pulse" />
-        }
+        icon={<Download size={16} className="animate-pulse" />}
       >
         Güncelleme indiriliyor… <strong>%{status.percent}</strong>
-        <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full"
-          style={{ background: "color-mix(in oklch, var(--accent) 20%, transparent)" }}
-        >
-          <div
-            className="h-full rounded-full transition-all"
-            style={{
-              width: `${status.percent}%`,
-              background: "var(--accent)",
-            }}
-          />
-        </div>
       </Banner>
     );
   }
 
-  // İndirildi — "şimdi güncelle" butonu
+  // İndirildi (legacy — auto-download true olduğu eski kurulumlar için)
   if (status.state === "downloaded") {
     return (
       <Banner
@@ -88,12 +88,12 @@ export function UpdateBanner() {
             onPress={() => void install()}
           >
             <span className="inline-flex items-center gap-1.5">
-              <RefreshCw size={13} /> Güncelle ve Yeniden Başlat
+              <ExternalLink size={13} /> İndirme Sayfasını Aç
             </span>
           </Button>
         }
       >
-        <strong>v{status.version} hazır</strong> — yeniden başlatınca yüklenecek.
+        <strong>v{status.version} hazır</strong> — tarayıcıdan manuel kurulum.
       </Banner>
     );
   }
