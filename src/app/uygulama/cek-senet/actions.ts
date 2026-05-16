@@ -286,22 +286,5 @@ export async function bulkDeleteCekSenet(
   return { ok: true, count: result.count };
 }
 
-// Tip checker yardımcısı — params validation
-export function isCekSenetTip(v: unknown): v is CekSenetTip {
-  return v === CekSenetTip.Cek || v === CekSenetTip.Senet;
-}
-
-export function isCekSenetYon(v: unknown): v is CekSenetYon {
-  return v === CekSenetYon.Alinan || v === CekSenetYon.Verilen;
-}
-
-export function isCekSenetDurum(v: unknown): v is CekSenetDurum {
-  return (
-    v === CekSenetDurum.Portfoyde ||
-    v === CekSenetDurum.TahsileGonderildi ||
-    v === CekSenetDurum.Tahsil ||
-    v === CekSenetDurum.Iade ||
-    v === CekSenetDurum.Karsiliksiz ||
-    v === CekSenetDurum.Iptal
-  );
-}
+// Not: isCekSenetTip / isCekSenetYon / isCekSenetDurum sync type guard'ları
+// "use server" dosyasında bulunamaz. @/lib/schemas/cek-senet'te bulunabilirler.

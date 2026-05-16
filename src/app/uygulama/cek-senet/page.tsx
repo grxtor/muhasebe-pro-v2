@@ -8,7 +8,7 @@ import {
   isCekSenetTip,
   isCekSenetYon,
   isCekSenetDurum,
-} from "./actions";
+} from "@/lib/schemas/cek-senet";
 import { CekSenetList, type CekSenetRow, type CariRef } from "./cek-senet-list";
 
 export const metadata = { title: "Çek / Senet" };

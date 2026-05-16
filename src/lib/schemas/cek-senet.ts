@@ -70,3 +70,27 @@ export const cekSenetDurumGuncelleSchema = z.object({
 
 export type CekSenetDurumGuncelleInput = z.input<typeof cekSenetDurumGuncelleSchema>;
 export type CekSenetDurumGuncelleOutput = z.output<typeof cekSenetDurumGuncelleSchema>;
+
+// ============================================================
+//  Type guard'lar — URL params validation için (sync, server actions
+//  dosyasında bulunamaz: "use server" tüm exportların async olmasını ister)
+// ============================================================
+
+export function isCekSenetTip(v: unknown): v is CekSenetTip {
+  return v === CekSenetTip.Cek || v === CekSenetTip.Senet;
+}
+
+export function isCekSenetYon(v: unknown): v is CekSenetYon {
+  return v === CekSenetYon.Alinan || v === CekSenetYon.Verilen;
+}
+
+export function isCekSenetDurum(v: unknown): v is CekSenetDurum {
+  return (
+    v === CekSenetDurum.Portfoyde ||
+    v === CekSenetDurum.TahsileGonderildi ||
+    v === CekSenetDurum.Tahsil ||
+    v === CekSenetDurum.Iade ||
+    v === CekSenetDurum.Karsiliksiz ||
+    v === CekSenetDurum.Iptal
+  );
+}
