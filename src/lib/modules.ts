@@ -14,7 +14,10 @@ export type ModuleKey =
   | "etiketler"
   | "cekSenet"
   | "kasa"
-  | "kdvBeyan";
+  | "kdvBeyan"
+  | "distributor"
+  | "ticaret"
+  | "avans";
 
 export interface ModuleConfig {
   key: ModuleKey;
@@ -79,6 +82,25 @@ export const OPTIONAL_MODULES: ModuleConfig[] = [
     description: "Aylık KDV özeti (faturalardan otomatik hesaplama)",
     href: "/uygulama/kdv-beyan",
   },
+  {
+    key: "distributor",
+    label: "Distribütör Rapor",
+    description:
+      "Spotify, YouTube gibi distribütör CSV'lerini yükle, gelir hesapla",
+    href: "/uygulama/distributor",
+  },
+  {
+    key: "ticaret",
+    label: "Ticaret",
+    description: "Yatırım + getiri takibi (alım-satım, döviz, kripto vs.)",
+    href: "/uygulama/ticaret",
+  },
+  {
+    key: "avans",
+    label: "Avans",
+    description: "Geri alınabilir ileri tarihli ödemelerin takibi",
+    href: "/uygulama/avans",
+  },
 ];
 
 export interface ModuleFlags {
@@ -91,6 +113,9 @@ export interface ModuleFlags {
   cekSenet: boolean;
   kasa: boolean;
   kdvBeyan: boolean;
+  distributor: boolean;
+  ticaret: boolean;
+  avans: boolean;
 }
 
 export const DEFAULT_MODULES: ModuleFlags = {
@@ -103,6 +128,9 @@ export const DEFAULT_MODULES: ModuleFlags = {
   cekSenet: false,
   kasa: false,
   kdvBeyan: false,
+  distributor: false,
+  ticaret: false,
+  avans: false,
 };
 
 export function readModuleFlags(
@@ -116,6 +144,9 @@ export function readModuleFlags(
     modulCekSenet: boolean;
     modulKasa: boolean;
     modulKdvBeyan: boolean;
+    modulDistributor: boolean;
+    modulTicaret: boolean;
+    modulAvans: boolean;
   }> | null,
 ): ModuleFlags {
   if (!settings) return DEFAULT_MODULES;
@@ -131,5 +162,8 @@ export function readModuleFlags(
     cekSenet: settings.modulCekSenet ?? DEFAULT_MODULES.cekSenet,
     kasa: settings.modulKasa ?? DEFAULT_MODULES.kasa,
     kdvBeyan: settings.modulKdvBeyan ?? DEFAULT_MODULES.kdvBeyan,
+    distributor: settings.modulDistributor ?? DEFAULT_MODULES.distributor,
+    ticaret: settings.modulTicaret ?? DEFAULT_MODULES.ticaret,
+    avans: settings.modulAvans ?? DEFAULT_MODULES.avans,
   };
 }

@@ -397,6 +397,9 @@ const modulSchema = z.object({
   modulCekSenet: z.coerce.boolean().default(false),
   modulKasa: z.coerce.boolean().default(false),
   modulKdvBeyan: z.coerce.boolean().default(false),
+  modulDistributor: z.coerce.boolean().default(false),
+  modulTicaret: z.coerce.boolean().default(false),
+  modulAvans: z.coerce.boolean().default(false),
 });
 
 export async function updateModuller(
@@ -414,6 +417,9 @@ export async function updateModuller(
     "modulCekSenet",
     "modulKasa",
     "modulKdvBeyan",
+    "modulDistributor",
+    "modulTicaret",
+    "modulAvans",
   ]) {
     o[key] = formData.has(key);
   }

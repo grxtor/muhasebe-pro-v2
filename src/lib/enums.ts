@@ -18,6 +18,29 @@ export const cariTipiEtiket: Record<CariTipi, string> = {
   Harcama: "Harcama",
 };
 
+// Harcama profili alt-kategorisi (sadece tip=Harcama için)
+export const HarcamaTuru = {
+  Genel: "Genel",
+  Promosyon: "Promosyon",
+  Avans: "Avans",
+  Ticaret: "Ticaret",
+} as const;
+export type HarcamaTuru = (typeof HarcamaTuru)[keyof typeof HarcamaTuru];
+
+export const harcamaTuruEtiket: Record<HarcamaTuru, string> = {
+  Genel: "Genel",
+  Promosyon: "Promosyon",
+  Avans: "Avans",
+  Ticaret: "Ticaret",
+};
+
+export const harcamaTuruAciklama: Record<HarcamaTuru, string> = {
+  Genel: "Klasik genel harcama (kira, fatura, ofis vs.)",
+  Promosyon: "Bir sanatçı/şarkı/video için yapılan tanıtım harcaması",
+  Avans: "Geri alınabilir ileri tarihli ödeme",
+  Ticaret: "Yatırım + getiri (alım-satım, döviz, kripto vs.)",
+};
+
 export const OdemeYonu = {
   Alacak: "Alacak",
   Borc: "Borc",

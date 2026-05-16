@@ -30,6 +30,8 @@ import { deleteProfil, exportProfiller } from "./actions";
 import {
   CariTipi,
   cariTipiEtiket,
+  harcamaTuruEtiket,
+  type HarcamaTuru,
   tagColorClass,
   type TagColor,
 } from "@/lib/enums";
@@ -45,6 +47,7 @@ export interface ProfilRow {
   kod: string;
   unvan: string;
   tip: string;
+  harcamaTuru: string | null;
   telefon: string | null;
   email: string | null;
   sehir: string | null;
@@ -357,15 +360,30 @@ export function ProfilList({ profiller, sonrakiKod, tumEtiketler }: Props) {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <span
-                        className="inline-flex rounded-full px-2 py-0.5 text-xs"
-                        style={{
-                          background: tipBg(p.tip),
-                          color: tipColor(p.tip),
-                        }}
-                      >
-                        {cariTipiEtiket[p.tip as keyof typeof cariTipiEtiket] ?? p.tip}
-                      </span>
+                      <div className="flex flex-wrap items-center gap-1">
+                        <span
+                          className="inline-flex rounded-full px-2 py-0.5 text-xs"
+                          style={{
+                            background: tipBg(p.tip),
+                            color: tipColor(p.tip),
+                          }}
+                        >
+                          {cariTipiEtiket[p.tip as keyof typeof cariTipiEtiket] ?? p.tip}
+                        </span>
+                        {p.tip === CariTipi.Harcama && p.harcamaTuru && (
+                          <span
+                            className="inline-flex rounded-full border px-1.5 py-0.5 text-[10px] font-medium"
+                            style={{
+                              background: "var(--surface-muted)",
+                              color: "var(--text-muted)",
+                              borderColor: "var(--border-strong)",
+                            }}
+                          >
+                            {harcamaTuruEtiket[p.harcamaTuru as HarcamaTuru] ??
+                              p.harcamaTuru}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3" style={{ color: "var(--text-muted)" }}>
                       <div className="space-y-0.5 text-xs">

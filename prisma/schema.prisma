@@ -55,6 +55,7 @@ model User {
   cekSenetler     CekSenet[]
   kasalar         Kasa[]
   kasaHareketleri KasaHareketi[]
+  distributorRaporlar DistributorRapor[] @relation("DistributorUser")
 
   @@index([email])
   @@index([currentOrgId])
@@ -103,6 +104,9 @@ model Organization {
   modulCekSenet       Boolean @default(false)
   modulKasa           Boolean @default(false)
   modulKdvBeyan       Boolean @default(false)
+  modulDistributor    Boolean @default(false)
+  modulTicaret        Boolean @default(false)
+  modulAvans          Boolean @default(false)
 
   defaultKdvOrani   Decimal @default(20) @db.Decimal(5, 2)
   defaultParaBirimi String  @default("TRY") @db.VarChar(3)
@@ -126,6 +130,7 @@ model Organization {
   cekSenetler     CekSenet[]
   kasalar         Kasa[]
   kasaHareketleri KasaHareketi[]
+  distributorRaporlar DistributorRapor[]
 
   olusturmaTarihi  DateTime @default(now())
   guncellemeTarihi DateTime @updatedAt
@@ -213,6 +218,14 @@ enum CariTipi {
   Harcama
 }
 
+// Harcama profili için alt-kategori (sadece tip=Harcama ise anlamlı)
+enum HarcamaTuru {
+  Genel       // Klasik genel harcama (kira, fatura, vs.)
+  Promosyon   // Bir sanatçı/şarkı/video için yapılan promosyon
+  Avans       // Geri alınabilir ileri tarihli ödeme
+  Ticaret     // Yatırım + getiri (alım-satım, döviz, kripto vs.)
+}
+
 enum OdemeYonu {
   Alacak
   Borc
@@ -253,7 +266,9 @@ model Cari {
 
   kod   String
   unvan String
-  tip   CariTipi @default(Musteri)
+  tip   CariTipi    @default(Musteri)
+  // tip=Harcama olduğunda kullanılır (Promosyon/Avans/Ticaret/Genel)
+  harcamaTuru HarcamaTuru?
 
   vergiNo       String?
   vergiDairesi  String?
@@ -337,12 +352,23 @@ model OdemeNotu {
   faturaId Int? @unique
   fatura   Fatura? @relation(fields: [faturaId], references: [id], onDelete: SetNull)
 
+  // Türe göre değişen ek metadata (harcama profili dışında null kalır)
+  // Promosyon: { hedefCariId: number, videoUrl?: string, videoBasligi?: string, platform?: string }
+  // Ticaret:   { yatirim: number, getiri: number }
+  // Avans:     { geriOdemeTarihi: string, geriOdendi: boolean, geriOdenenTutar?: number }
+  detay Json?
+
+  // Distribütör CSV'den geldiyse hangi kayda bağlı
+  distributorRaporId Int?
+  distributorRapor   DistributorRapor? @relation(fields: [distributorRaporId], references: [id], onDelete: SetNull)
+
   olusturmaTarihi  DateTime @default(now())
   guncellemeTarihi DateTime @updatedAt
 
   @@index([userId, yon, durum])
   @@index([organizationId, yon, durum])
   @@index([organizationId, vadeTarihi])
+  @@index([distributorRaporId])
   @@index([cariId])
 }
 
@@ -823,4 +849,45 @@ model KasaHareketi {
 
   @@index([organizationId, tarih(sort: Desc)])
   @@index([kasaId, tarih(sort: Desc)])
+}
+
+// ============================================================
+//  Distribütör Rapor (CSV upload + parse + kazanç hesabı)
+// ============================================================
+// Kullanıcı Spotify/YouTube/Apple gibi platformlardan gelen
+// gelir raporlarını CSV olarak yükler. Her satır bir track/video
+// olabilir. Toplam gelir hesaplanır, isteğe bağlı promosyon
+// kayıtlarıyla ROI çıkarılır.
+
+model DistributorRapor {
+  id   Int @id @default(autoincrement())
+
+  userId         String
+  user           User        @relation("DistributorUser", fields: [userId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  ad           String     // "Spotify Mart 2026" gibi
+  platform     String?    // "Spotify" | "YouTube" | "Apple Music" | custom
+  donem        String     // "2026-03" formatında dönem
+  dosyaAdi     String?    // original CSV filename
+  depoYolu     String?    // saved csv path (uploads/distributor/...)
+
+  toplamGelir  Decimal    @default(0) @db.Decimal(18, 2)
+  paraBirimi   String     @default("TRY") @db.VarChar(3)
+  toplamStream Int        @default(0)
+  satirSayisi  Int        @default(0)
+
+  notlar       String?    @db.Text
+  // Parser sonucu (satır detayları, kolon eşleştirmeleri vs)
+  rawData      Json?
+
+  // İlişkili kayıtlar (promosyon eşleştirmesi)
+  odemeNotlari OdemeNotu[]
+
+  olusturmaTarihi  DateTime @default(now())
+  guncellemeTarihi DateTime @updatedAt
+
+  @@index([organizationId, donem])
+  @@index([userId])
 }

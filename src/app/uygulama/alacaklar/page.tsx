@@ -40,12 +40,22 @@ async function loadView(
     db.odemeNotu.findMany({
       where,
       orderBy: { vadeTarihi: "asc" },
-      include: { cari: { select: { kod: true, unvan: true } } },
+      include: {
+        cari: {
+          select: { kod: true, unvan: true, tip: true, harcamaTuru: true },
+        },
+      },
     }),
     db.cari.findMany({
       where: { organizationId: orgId, aktif: true },
       orderBy: { unvan: "asc" },
-      select: { id: true, kod: true, unvan: true },
+      select: {
+        id: true,
+        kod: true,
+        unvan: true,
+        tip: true,
+        harcamaTuru: true,
+      },
     }),
     computeStats(orgId, yon),
   ]);
@@ -61,6 +71,10 @@ async function loadView(
     vadeTarihi: o.vadeTarihi.toISOString(),
     durum: o.durum,
     odemeTarihi: o.odemeTarihi?.toISOString() ?? null,
+    detay:
+      o.detay && typeof o.detay === "object" && !Array.isArray(o.detay)
+        ? (o.detay as Record<string, unknown>)
+        : null,
     cari: o.cari!,
   }));
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { Button } from "@heroui/react";
 import { toast } from "sonner";
 import { DataModal } from "@/components/ui/data-modal";
@@ -16,6 +16,9 @@ import {
   OdemeYonu,
   OdemeDurumu,
   odemeDurumuEtiket,
+  CariTipi,
+  HarcamaTuru,
+  harcamaTuruEtiket,
 } from "@/lib/enums";
 import {
   createOdemeNotu,
@@ -44,6 +47,42 @@ export function OdemeNotuDialog({
   const isAlacak = yon === OdemeYonu.Alacak;
   const labelTekil = isAlacak ? "Alacak" : "Borç";
   const [pending, startTransition] = useTransition();
+  const [selectedCariId, setSelectedCariId] = useState<number | "">(
+    notu?.cariId ?? "",
+  );
+
+  const selectedCari = useMemo(
+    () =>
+      typeof selectedCariId === "number"
+        ? cariler.find((c) => c.id === selectedCariId) ?? null
+        : null,
+    [cariler, selectedCariId],
+  );
+
+  const harcamaTuru =
+    selectedCari?.tip === CariTipi.Harcama
+      ? (selectedCari.harcamaTuru as HarcamaTuru | null)
+      : null;
+
+  const detay = notu?.detay ?? null;
+  function detayStr(key: string): string {
+    if (!detay) return "";
+    const v = detay[key];
+    if (v === null || v === undefined) return "";
+    return typeof v === "string" ? v : String(v);
+  }
+  function detayBool(key: string): boolean {
+    if (!detay) return false;
+    const v = detay[key];
+    if (typeof v === "boolean") return v;
+    if (typeof v === "string") return v === "true" || v === "on";
+    return false;
+  }
+
+  const hedefCariOptions = useMemo(
+    () => cariler.filter((c) => c.tip !== CariTipi.Harcama),
+    [cariler],
+  );
 
   async function handleSubmit(formData: FormData) {
     // Hidden yon ekle
@@ -120,7 +159,12 @@ export function OdemeNotuDialog({
             id="cariId"
             name="cariId"
             required
-            defaultValue={notu?.cariId ?? ""}
+            value={selectedCariId === "" ? "" : String(selectedCariId)}
+            onChange={(e) =>
+              setSelectedCariId(
+                e.target.value === "" ? "" : Number(e.target.value),
+              )
+            }
           >
             <option value="">— seçin —</option>
             {cariler.map((c) => (
@@ -230,6 +274,160 @@ export function OdemeNotuDialog({
             placeholder="Ek not, referans no, vs."
           />
         </Field>
+
+        {harcamaTuru === HarcamaTuru.Promosyon && (
+          <div
+            className="space-y-3 rounded-lg border p-3"
+            style={{
+              borderColor: "var(--border)",
+              background: "var(--surface-muted)",
+            }}
+          >
+            <div
+              className="text-xs font-semibold uppercase tracking-wide"
+              style={{ color: "var(--text-muted)" }}
+            >
+              Promosyon Detayı — {harcamaTuruEtiket.Promosyon}
+            </div>
+            <Field>
+              <Label htmlFor="detay.hedefCariId">Hedef Profil</Label>
+              <Select
+                id="detay.hedefCariId"
+                name="detay.hedefCariId"
+                defaultValue={detayStr("hedefCariId")}
+              >
+                <option value="">— seçin —</option>
+                {hedefCariOptions.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.kod} — {c.unvan}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field>
+                <Label htmlFor="detay.videoBasligi">Video Başlığı</Label>
+                <TextInput
+                  id="detay.videoBasligi"
+                  name="detay.videoBasligi"
+                  defaultValue={detayStr("videoBasligi")}
+                  placeholder="Şarkı / video adı"
+                />
+              </Field>
+              <Field>
+                <Label htmlFor="detay.platform">Platform</Label>
+                <Select
+                  id="detay.platform"
+                  name="detay.platform"
+                  defaultValue={detayStr("platform")}
+                >
+                  <option value="">— seçin —</option>
+                  <option value="Spotify">Spotify</option>
+                  <option value="YouTube">YouTube</option>
+                  <option value="Apple Music">Apple Music</option>
+                  <option value="Diğer">Diğer</option>
+                </Select>
+              </Field>
+            </div>
+            <Field>
+              <Label htmlFor="detay.videoUrl">Video URL</Label>
+              <TextInput
+                id="detay.videoUrl"
+                name="detay.videoUrl"
+                type="url"
+                defaultValue={detayStr("videoUrl")}
+                placeholder="https://…"
+              />
+            </Field>
+          </div>
+        )}
+
+        {harcamaTuru === HarcamaTuru.Ticaret && (
+          <div
+            className="space-y-3 rounded-lg border p-3"
+            style={{
+              borderColor: "var(--border)",
+              background: "var(--surface-muted)",
+            }}
+          >
+            <div
+              className="text-xs font-semibold uppercase tracking-wide"
+              style={{ color: "var(--text-muted)" }}
+            >
+              Ticaret Detayı
+            </div>
+            <Field>
+              <Label htmlFor="detay.getiri" hint="₺">
+                Getiri Tutarı
+              </Label>
+              <TextInput
+                id="detay.getiri"
+                name="detay.getiri"
+                type="number"
+                step="0.01"
+                min="0"
+                defaultValue={detayStr("getiri")}
+                placeholder="İleride güncellenebilir"
+              />
+            </Field>
+          </div>
+        )}
+
+        {harcamaTuru === HarcamaTuru.Avans && (
+          <div
+            className="space-y-3 rounded-lg border p-3"
+            style={{
+              borderColor: "var(--border)",
+              background: "var(--surface-muted)",
+            }}
+          >
+            <div
+              className="text-xs font-semibold uppercase tracking-wide"
+              style={{ color: "var(--text-muted)" }}
+            >
+              Avans Detayı
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field>
+                <Label htmlFor="detay.geriOdemeTarihi">
+                  Geri Ödeme Vadesi
+                </Label>
+                <TextInput
+                  id="detay.geriOdemeTarihi"
+                  name="detay.geriOdemeTarihi"
+                  type="date"
+                  defaultValue={detayStr("geriOdemeTarihi")}
+                />
+              </Field>
+              <Field>
+                <Label htmlFor="detay.geriOdenenTutar" hint="₺">
+                  Geri Ödenen Tutar
+                </Label>
+                <TextInput
+                  id="detay.geriOdenenTutar"
+                  name="detay.geriOdenenTutar"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  defaultValue={detayStr("geriOdenenTutar")}
+                />
+              </Field>
+            </div>
+            <Field>
+              <label className="inline-flex cursor-pointer items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  name="detay.geriOdendi"
+                  value="true"
+                  defaultChecked={detayBool("geriOdendi")}
+                  className="size-4 rounded"
+                  style={{ accentColor: "var(--accent)" }}
+                />
+                <span>Geri Ödendi</span>
+              </label>
+            </Field>
+          </div>
+        )}
 
         <input type="hidden" name="paraBirimi" value="TRY" />
       </form>

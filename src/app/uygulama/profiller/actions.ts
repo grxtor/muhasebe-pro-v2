@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { getOrgContext } from "@/lib/auth-helpers";
 import { logAction } from "@/lib/audit";
 import { profilSchema } from "@/lib/schemas/profil";
-import { CariTipi, cariTipiEtiket } from "@/lib/enums";
+import { CariTipi, cariTipiEtiket, HarcamaTuru } from "@/lib/enums";
 
 export type ActionResult<T = unknown> =
   | { ok: true; data?: T }
@@ -39,9 +39,15 @@ export async function createProfil(formData: FormData): Promise<ActionResult> {
     return { ok: false, error: `Bu kod (${parsed.data.kod}) zaten kayıtlı` };
   }
 
+  const harcamaTuru =
+    parsed.data.tip === CariTipi.Harcama
+      ? (parsed.data.harcamaTuru ?? HarcamaTuru.Genel)
+      : null;
+
   await db.cari.create({
     data: {
       ...parsed.data,
+      harcamaTuru,
       userId: ctx.userId,
       organizationId: ctx.orgId,
     },
@@ -93,9 +99,14 @@ export async function updateProfil(
     };
   }
 
+  const harcamaTuru =
+    parsed.data.tip === CariTipi.Harcama
+      ? (parsed.data.harcamaTuru ?? HarcamaTuru.Genel)
+      : null;
+
   await db.cari.update({
     where: { id },
-    data: parsed.data,
+    data: { ...parsed.data, harcamaTuru },
   });
 
   await logAction({

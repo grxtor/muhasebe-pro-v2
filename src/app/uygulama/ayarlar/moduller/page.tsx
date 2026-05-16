@@ -20,6 +20,7 @@ export default async function ModullerAyarlariPage() {
     hatirSayisi,
     cekSenetSayisi,
     kasaSayisi,
+    distributorSayisi,
   ] = await Promise.all([
     db.fatura.count({ where: { organizationId: orgId } }),
     db.hareket.count({ where: { organizationId: orgId } }),
@@ -28,6 +29,7 @@ export default async function ModullerAyarlariPage() {
     db.hatirlatici.count({ where: { organizationId: orgId } }),
     db.cekSenet.count({ where: { organizationId: orgId } }),
     db.kasa.count({ where: { organizationId: orgId } }),
+    db.distributorRapor.count({ where: { organizationId: orgId } }),
   ]);
 
   return (
@@ -43,6 +45,9 @@ export default async function ModullerAyarlariPage() {
         cekSenet: cekSenetSayisi,
         kasa: kasaSayisi,
         kdvBeyan: 0,
+        distributor: distributorSayisi,
+        ticaret: 0,
+        avans: 0,
       }}
     />
   );

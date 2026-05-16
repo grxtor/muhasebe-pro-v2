@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CariTipi } from "../enums";
+import { CariTipi, HarcamaTuru } from "../enums";
 
 const opt = (s: z.ZodString) =>
   z
@@ -15,6 +15,19 @@ export const profilSchema = z.object({
     CariTipi.HerIkisi,
     CariTipi.Harcama,
   ]),
+  harcamaTuru: z
+    .union([
+      z.enum([
+        HarcamaTuru.Genel,
+        HarcamaTuru.Promosyon,
+        HarcamaTuru.Avans,
+        HarcamaTuru.Ticaret,
+      ]),
+      z.literal(""),
+      z.null(),
+      z.undefined(),
+    ])
+    .transform((v) => (v === "" || v === null || v === undefined ? null : v)),
   vergiNo: opt(z.string().max(50)),
   vergiDairesi: opt(z.string().max(100)),
   tcKimlikNo: opt(z.string().max(20)),

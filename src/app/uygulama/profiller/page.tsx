@@ -61,6 +61,7 @@ export default async function ProfillerPage({
     kod: p.kod,
     unvan: p.unvan,
     tip: p.tip,
+    harcamaTuru: p.harcamaTuru,
     telefon: p.telefon,
     email: p.email,
     sehir: p.sehir,

@@ -30,6 +30,9 @@ import {
   FileText,
   Wallet,
   Calculator,
+  BarChart3,
+  HandCoins,
+  LineChart,
   type LucideIcon,
 } from "lucide-react";
 import { useKeyboardShortcut, modKeyLabel } from "@/lib/hooks/use-keyboard";
@@ -150,6 +153,15 @@ export function CommandPalette({ cariler = [] }: Props) {
         group: "Hızlı Eylem",
       },
       {
+        id: "yeni-rapor",
+        label: "Yeni Distribütör Raporu",
+        description: "Spotify / YouTube CSV yükle",
+        icon: Plus,
+        keywords: ["distribütör", "spotify", "youtube", "csv", "rapor"],
+        action: () => go("/uygulama/distributor?yeni=1"),
+        group: "Hızlı Eylem",
+      },
+      {
         id: "yeni-kasa-hareketi",
         label: "Yeni Kasa Hareketi",
         description: "Giriş, çıkış veya transfer",
@@ -248,11 +260,35 @@ export function CommandPalette({ cariler = [] }: Props) {
         group: "Sayfalar",
       },
       {
+        id: "distributor",
+        label: "Distribütör Raporları",
+        icon: BarChart3,
+        keywords: ["distribütör", "spotify", "youtube", "apple music", "csv", "rapor"],
+        action: () => go("/uygulama/distributor"),
+        group: "Sayfalar",
+      },
+      {
         id: "kdv-beyan",
         label: "KDV Beyan",
         icon: Calculator,
         keywords: ["kdv", "vergi", "beyan", "tax", "aylık özet"],
         action: () => go("/uygulama/kdv-beyan"),
+        group: "Sayfalar",
+      },
+      {
+        id: "ticaret",
+        label: "Ticaret",
+        icon: LineChart,
+        keywords: ["yatırım", "getiri", "kar", "alım", "satım", "kripto", "döviz"],
+        action: () => go("/uygulama/ticaret"),
+        group: "Sayfalar",
+      },
+      {
+        id: "avans",
+        label: "Avans",
+        icon: HandCoins,
+        keywords: ["avans", "geri ödeme", "borç verme", "ileri ödeme"],
+        action: () => go("/uygulama/avans"),
         group: "Sayfalar",
       },
       // Ayarlar

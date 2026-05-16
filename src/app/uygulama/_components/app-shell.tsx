@@ -32,6 +32,9 @@ import {
   FileText,
   Wallet,
   Calculator,
+  BarChart3,
+  HandCoins,
+  LineChart,
 } from "lucide-react";
 import { Button } from "@heroui/react";
 
@@ -99,6 +102,27 @@ function buildNavGroups(moduller: ModuleFlags, role: OrgRole): NavGroup[] {
       href: "/uygulama/kdv-beyan",
       label: "KDV Beyan",
       icon: Calculator,
+    });
+  }
+  if (moduller.distributor) {
+    muhasebe.push({
+      href: "/uygulama/distributor",
+      label: "Distribütör",
+      icon: BarChart3,
+    });
+  }
+  if (moduller.ticaret) {
+    muhasebe.push({
+      href: "/uygulama/ticaret",
+      label: "Ticaret",
+      icon: LineChart,
+    });
+  }
+  if (moduller.avans) {
+    muhasebe.push({
+      href: "/uygulama/avans",
+      label: "Avans",
+      icon: HandCoins,
     });
   }
 

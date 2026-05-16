@@ -16,6 +16,9 @@ import {
 import {
   CariTipi,
   cariTipiEtiket,
+  HarcamaTuru,
+  harcamaTuruEtiket,
+  harcamaTuruAciklama,
   tagColorClass,
   type TagColor,
 } from "@/lib/enums";
@@ -46,6 +49,9 @@ export function ProfilDialog({
     profil?.etiketler.map((t) => t.id) ?? [],
   );
   const [tip, setTip] = useState<string>(profil?.tip ?? CariTipi.Musteri);
+  const [harcamaTuru, setHarcamaTuru] = useState<HarcamaTuru>(
+    (profil?.harcamaTuru as HarcamaTuru | null) ?? HarcamaTuru.Genel,
+  );
   const isHarcama = tip === CariTipi.Harcama;
 
   // Modal her açıldığında etiket seçimini sıfırla
@@ -53,6 +59,9 @@ export function ProfilDialog({
     if (isOpen) {
       setSecilenEtiketler(profil?.etiketler.map((t) => t.id) ?? []);
       setTip(profil?.tip ?? CariTipi.Musteri);
+      setHarcamaTuru(
+        (profil?.harcamaTuru as HarcamaTuru | null) ?? HarcamaTuru.Genel,
+      );
     }
   }, [isOpen, profil]);
 
@@ -192,6 +201,39 @@ export function ProfilDialog({
             </p>
           )}
         </Field>
+
+        {isHarcama && (
+          <Field>
+            <Label htmlFor="harcamaTuru">Harcama Türü</Label>
+            <Select
+              id="harcamaTuru"
+              name="harcamaTuru"
+              value={harcamaTuru}
+              onChange={(e) =>
+                setHarcamaTuru(e.target.value as HarcamaTuru)
+              }
+            >
+              <option value={HarcamaTuru.Genel}>
+                {harcamaTuruEtiket.Genel}
+              </option>
+              <option value={HarcamaTuru.Promosyon}>
+                {harcamaTuruEtiket.Promosyon}
+              </option>
+              <option value={HarcamaTuru.Avans}>
+                {harcamaTuruEtiket.Avans}
+              </option>
+              <option value={HarcamaTuru.Ticaret}>
+                {harcamaTuruEtiket.Ticaret}
+              </option>
+            </Select>
+            <p
+              className="mt-1.5 text-xs"
+              style={{ color: "var(--text-soft)" }}
+            >
+              {harcamaTuruAciklama[harcamaTuru]}
+            </p>
+          </Field>
+        )}
 
         {!isHarcama && (
           <>

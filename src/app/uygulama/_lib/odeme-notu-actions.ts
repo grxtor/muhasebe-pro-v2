@@ -4,8 +4,20 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { getOrgContext } from "@/lib/auth-helpers";
 import { logAction } from "@/lib/audit";
-import { odemeNotuSchema } from "@/lib/schemas/odeme-notu";
-import { OdemeDurumu, OdemeYonu, HareketTipi } from "@/lib/enums";
+import {
+  odemeNotuSchema,
+  detayPromosyonSchema,
+  detayTicaretSchema,
+  detayAvansSchema,
+} from "@/lib/schemas/odeme-notu";
+import {
+  OdemeDurumu,
+  OdemeYonu,
+  HareketTipi,
+  CariTipi,
+  HarcamaTuru,
+} from "@/lib/enums";
+import { Prisma } from "@prisma/client";
 
 export type ActionResult<T = unknown> =
   | { ok: true; data?: T }
@@ -13,8 +25,58 @@ export type ActionResult<T = unknown> =
 
 function fdToObject(formData: FormData): Record<string, unknown> {
   const o: Record<string, unknown> = {};
-  for (const [k, v] of formData.entries()) o[k] = v;
+  for (const [k, v] of formData.entries()) {
+    if (k.startsWith("detay.")) continue;
+    o[k] = v;
+  }
   return o;
+}
+
+function readDetayFromFormData(formData: FormData): Record<string, unknown> {
+  const detay: Record<string, unknown> = {};
+  for (const [k, v] of formData.entries()) {
+    if (!k.startsWith("detay.")) continue;
+    const key = k.slice("detay.".length);
+    if (typeof v === "string" && v.trim() === "") continue;
+    detay[key] = v;
+  }
+  return detay;
+}
+
+/**
+ * Cari harcama türüne göre detay'ı validate edip
+ * Prisma JSON olarak hazırlanan değer veya null döner.
+ */
+async function buildDetayForCari(
+  cariId: number,
+  organizationId: string,
+  rawDetay: Record<string, unknown>,
+): Promise<Prisma.InputJsonValue | null> {
+  const cari = await db.cari.findFirst({
+    where: { id: cariId, organizationId },
+    select: { tip: true, harcamaTuru: true },
+  });
+  if (!cari || cari.tip !== CariTipi.Harcama || !cari.harcamaTuru) {
+    return null;
+  }
+  if (Object.keys(rawDetay).length === 0) return null;
+
+  switch (cari.harcamaTuru) {
+    case HarcamaTuru.Promosyon: {
+      const parsed = detayPromosyonSchema.safeParse(rawDetay);
+      return parsed.success ? (parsed.data as Prisma.InputJsonValue) : null;
+    }
+    case HarcamaTuru.Ticaret: {
+      const parsed = detayTicaretSchema.safeParse(rawDetay);
+      return parsed.success ? (parsed.data as Prisma.InputJsonValue) : null;
+    }
+    case HarcamaTuru.Avans: {
+      const parsed = detayAvansSchema.safeParse(rawDetay);
+      return parsed.success ? (parsed.data as Prisma.InputJsonValue) : null;
+    }
+    default:
+      return null;
+  }
 }
 
 export async function createOdemeNotu(
@@ -32,9 +94,20 @@ export async function createOdemeNotu(
   });
   if (!cari) return { ok: false, error: "Profil bulunamadı" };
 
+  const rawDetay = readDetayFromFormData(formData);
+  const detay = await buildDetayForCari(
+    parsed.data.cariId,
+    ctx.orgId,
+    rawDetay,
+  );
+
+  const { detay: _ignored, ...rest } = parsed.data;
+  void _ignored;
+
   await db.odemeNotu.create({
     data: {
-      ...parsed.data,
+      ...rest,
+      detay: detay ?? Prisma.JsonNull,
       userId: ctx.userId,
       organizationId: ctx.orgId,
     },
@@ -70,9 +143,19 @@ export async function updateOdemeNotu(
   });
   if (!existing) return { ok: false, error: "Kayıt bulunamadı" };
 
+  const rawDetay = readDetayFromFormData(formData);
+  const detay = await buildDetayForCari(
+    parsed.data.cariId,
+    ctx.orgId,
+    rawDetay,
+  );
+
+  const { detay: _ignored, ...rest } = parsed.data;
+  void _ignored;
+
   await db.odemeNotu.update({
     where: { id },
-    data: parsed.data,
+    data: { ...rest, detay: detay ?? Prisma.JsonNull },
   });
 
   await logAction({

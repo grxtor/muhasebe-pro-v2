@@ -14,6 +14,9 @@ import {
   FileText,
   Wallet,
   Calculator,
+  BarChart3,
+  LineChart,
+  HandCoins,
 } from "lucide-react";
 import { SectionCard } from "../profil-form";
 import { updateModuller } from "../actions";
@@ -29,6 +32,9 @@ const MODULE_ICONS: Record<ModuleKey, React.ComponentType<{ size?: number }>> = 
   cekSenet: FileText,
   kasa: Wallet,
   kdvBeyan: Calculator,
+  distributor: BarChart3,
+  ticaret: LineChart,
+  avans: HandCoins,
 };
 
 interface Props {

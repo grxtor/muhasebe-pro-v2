@@ -30,6 +30,9 @@ import {
   OdemeYonu,
   OdemeDurumu,
   odemeDurumuEtiket,
+  CariTipi,
+  harcamaTuruEtiket,
+  type HarcamaTuru,
 } from "@/lib/enums";
 import { formatPara, formatTarih, formatVade } from "@/lib/format";
 
@@ -44,13 +47,21 @@ export interface OdemeNotuRow {
   vadeTarihi: string;
   durum: string;
   odemeTarihi: string | null;
-  cari: { kod: string; unvan: string };
+  detay: Record<string, unknown> | null;
+  cari: {
+    kod: string;
+    unvan: string;
+    tip: string;
+    harcamaTuru: string | null;
+  };
 }
 
 export interface CariRef {
   id: number;
   kod: string;
   unvan: string;
+  tip: string;
+  harcamaTuru: string | null;
 }
 
 interface Props {
@@ -322,20 +333,45 @@ export function OdemeNotuList({
                       </td>
                       <td className="px-4 py-3">
                         <div className="font-medium">{o.baslik}</div>
-                        {o.aciklama && (
-                          <div
-                            className="mt-0.5 line-clamp-1 text-xs"
-                            style={{ color: "var(--text-muted)" }}
-                          >
-                            {o.aciklama}
-                          </div>
-                        )}
+                        {(() => {
+                          const videoBasligi =
+                            typeof o.detay?.videoBasligi === "string"
+                              ? o.detay.videoBasligi
+                              : null;
+                          const secondary = videoBasligi ?? o.aciklama;
+                          if (!secondary) return null;
+                          return (
+                            <div
+                              className="mt-0.5 line-clamp-1 text-xs"
+                              style={{ color: "var(--text-muted)" }}
+                            >
+                              {secondary}
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td
                         className="px-4 py-3"
                         style={{ color: "var(--text-muted)" }}
                       >
-                        <div className="text-sm">{o.cari.unvan}</div>
+                        <div className="flex flex-wrap items-center gap-1">
+                          <span className="text-sm">{o.cari.unvan}</span>
+                          {o.cari.tip === CariTipi.Harcama &&
+                            o.cari.harcamaTuru && (
+                              <span
+                                className="inline-flex rounded-full border px-1.5 py-0.5 text-[10px] font-medium"
+                                style={{
+                                  background: "var(--surface)",
+                                  color: "var(--text-muted)",
+                                  borderColor: "var(--border-strong)",
+                                }}
+                              >
+                                {harcamaTuruEtiket[
+                                  o.cari.harcamaTuru as HarcamaTuru
+                                ] ?? o.cari.harcamaTuru}
+                              </span>
+                            )}
+                        </div>
                         <div
                           className="font-mono text-[10px]"
                           style={{ color: "var(--text-soft)" }}
