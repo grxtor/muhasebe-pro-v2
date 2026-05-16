@@ -1,6 +1,6 @@
 {
   "name": "muhasebe-pro-v2",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "main": "dist-electron/main.js",
   "scripts": {
@@ -48,9 +48,15 @@
         }
       ],
       "icon": "electron/icons/icon.png",
-      "hardenedRuntime": true,
+      "hardenedRuntime": false,
       "gatekeeperAssess": false,
-      "identity": null
+      "identity": "-",
+      "extendInfo": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": false,
+          "NSAllowsLocalNetworking": true
+        }
+      }
     },
     "dmg": {
       "title": "Muhasebe Pro ${version}",
