@@ -15,9 +15,10 @@
  * (uygulamayı yeniden yüklemek eski cache'i siler)
  */
 
-const CACHE_VERSION = "v1";
+// v2: HTML page cache devre dışı — React hydration mismatch oluyordu
+// (eski HTML + yeni JS bundle uyuşmuyor). Sadece statik asset cache var.
+const CACHE_VERSION = "v2";
 const STATIC_CACHE = `muhasebe-static-${CACHE_VERSION}`;
-const PAGES_CACHE = `muhasebe-pages-${CACHE_VERSION}`;
 const API_CACHE = `muhasebe-api-${CACHE_VERSION}`;
 
 const STATIC_PATTERNS = [
@@ -74,14 +75,16 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Uygulama sayfaları → stale-while-revalidate
+  // Uygulama sayfaları (HTML/RSC) → network-only (SSR fresh)
+  // Cache yapmıyoruz çünkü hash'li JS bundle değişince eski HTML
+  // yeni JS ile uyuşmaz → React hydration error.
+  // Next.js'in Router Cache'i ve Electron'un disk cache'i zaten hızlandırıyor.
   if (PAGE_PATTERN.test(url.pathname)) {
-    event.respondWith(staleWhileRevalidate(request, PAGES_CACHE));
-    return;
+    return; // browser default fetch
   }
 
-  // Diğer → network-first (fallback cache)
-  event.respondWith(networkFirst(request, PAGES_CACHE));
+  // Diğer GET istekleri → browser default
+  return;
 });
 
 /** Cache'te varsa hemen dön, yoksa network'ten al ve cache'le */
