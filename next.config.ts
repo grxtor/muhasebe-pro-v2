@@ -29,6 +29,18 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: "10mb",
     },
+    // 🚀 KRİTİK PERFORMANS — Router Cache
+    // Discord tarzı "anında geri dönüş" deneyimi:
+    // Bir sayfaya 30 sn içinde geri dönersen cache'den gösterilir (fetch yok).
+    // Arkada otomatik revalidate ediliyor. Server Action sonrası
+    // revalidatePath çağrılırsa invalidate olur.
+    staleTimes: {
+      // Dinamik route'lar (auth gerekli, force-dynamic): 30 sn
+      // 30 sn içinde aynı sayfaya geri dönerken ağa hiç gidilmez.
+      dynamic: 30,
+      // Static route'lar: 5 dk (zaten az değişir)
+      static: 300,
+    },
   },
 
   // Cache-Control header'ları — Electron HTTP cache ve tarayıcı cache'i için
