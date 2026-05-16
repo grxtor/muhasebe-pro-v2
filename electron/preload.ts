@@ -41,4 +41,16 @@ contextBridge.exposeInMainWorld("muhasebePro", {
   // Harici link
   openExternal: (url: string) =>
     ipcRenderer.invoke("app:open-external", url),
+
+  // Otomatik güncelleme
+  getUpdateStatus: () => ipcRenderer.invoke("updater:get-status"),
+  checkForUpdates: () => ipcRenderer.invoke("updater:check"),
+  installUpdate: () => ipcRenderer.invoke("updater:install"),
+  onUpdateStatus: (callback: (status: unknown) => void) => {
+    const listener = (_event: unknown, status: unknown) => callback(status);
+    ipcRenderer.on("updater:status", listener);
+    return () => {
+      ipcRenderer.removeListener("updater:status", listener);
+    };
+  },
 });

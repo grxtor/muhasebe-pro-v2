@@ -14,6 +14,15 @@ export interface PlatformInfo {
   appPath: string;
 }
 
+export type UpdateStatus =
+  | { state: "idle" }
+  | { state: "checking" }
+  | { state: "available"; version: string }
+  | { state: "not-available" }
+  | { state: "downloading"; percent: number }
+  | { state: "downloaded"; version: string }
+  | { state: "error"; message: string };
+
 export interface MuhasebeProApi {
   reload: () => Promise<void>;
   getAppUrl: () => Promise<string>;
@@ -34,6 +43,11 @@ export interface MuhasebeProApi {
   relaunch: () => void;
   quit: () => void;
   openExternal: (url: string) => Promise<boolean>;
+  // Auto-updater
+  getUpdateStatus: () => Promise<UpdateStatus>;
+  checkForUpdates: () => Promise<{ ok: boolean; version?: string | null; error?: string }>;
+  installUpdate: () => Promise<void>;
+  onUpdateStatus: (callback: (status: UpdateStatus) => void) => () => void;
 }
 
 declare global {

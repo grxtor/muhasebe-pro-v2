@@ -8,6 +8,7 @@ import { useTheme } from "@/lib/theme";
 import { CommandPalette } from "@/components/ui/command-palette";
 import { ShortcutsHelp } from "@/components/ui/shortcuts-help";
 import { GlobalShortcuts } from "@/components/ui/global-shortcuts";
+import { UpdateBanner } from "@/components/ui/update-banner";
 import { modKeyLabel } from "@/lib/hooks/use-keyboard";
 import { useIsMacElectron } from "@/lib/hooks/use-electron";
 import {
@@ -314,6 +315,8 @@ export function AppShell({ user, moduller, org, children }: AppShellProps) {
             aria-hidden
           />
         )}
+        {/* Otomatik güncelleme banner (yalnızca Electron'da) */}
+        <UpdateBanner />
         {/* Topbar */}
         <header
           className="sticky top-0 z-40 flex h-14 items-center justify-between border-b px-4 md:px-6"

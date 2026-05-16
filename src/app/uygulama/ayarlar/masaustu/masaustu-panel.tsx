@@ -17,11 +17,14 @@ import {
   ExternalLink,
   AlertCircle,
   CheckCircle2,
+  Sparkles,
+  Download,
 } from "lucide-react";
 import { toast } from "sonner";
 import { SectionCard } from "../profil-form";
 import { Field, Label, TextInput } from "@/components/ui/form-field";
 import { useIsElectron, type PlatformInfo } from "@/lib/hooks/use-electron";
+import { useUpdater } from "@/lib/hooks/use-updater";
 
 function formatBytes(b: number): string {
   if (b < 1024) return `${b} B`;
@@ -37,6 +40,7 @@ function zoomPercent(level: number): number {
 
 export function MasaustuPanel() {
   const isElectron = useIsElectron();
+  const updater = useUpdater();
   const [info, setInfo] = useState<PlatformInfo | null>(null);
   const [autoLaunch, setAutoLaunch] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(0);
@@ -45,6 +49,25 @@ export function MasaustuPanel() {
   const [appUrlInput, setAppUrlInput] = useState("");
   const [savingUrl, setSavingUrl] = useState(false);
   const [clearingCache, setClearingCache] = useState(false);
+  const [checking, setChecking] = useState(false);
+
+  async function manualCheck() {
+    setChecking(true);
+    try {
+      await updater.check();
+      // status 1-2 sn içinde güncellenir
+      setTimeout(() => {
+        const s = updater.status;
+        if (s.state === "not-available") {
+          toast.success("Zaten en güncel sürümdesin");
+        }
+      }, 2000);
+    } catch {
+      toast.error("Kontrol başarısız");
+    } finally {
+      setChecking(false);
+    }
+  }
 
   useEffect(() => {
     if (!isElectron || !window.muhasebePro) return;
@@ -373,6 +396,112 @@ export function MasaustuPanel() {
             </span>
           </Button>
         </div>
+      </SectionCard>
+
+      {/* Otomatik güncelleme */}
+      <SectionCard
+        title="Otomatik Güncelleme"
+        description="Yeni sürümler arka planda iner, sen onay verince yüklenir"
+      >
+        <div
+          className="rounded-lg border p-3"
+          style={{ borderColor: "var(--border)" }}
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div
+                className="grid size-10 place-items-center rounded-lg"
+                style={{
+                  background:
+                    updater.downloaded
+                      ? "var(--positive-soft)"
+                      : "var(--surface-muted)",
+                  color: updater.downloaded
+                    ? "var(--positive)"
+                    : "var(--text-muted)",
+                }}
+              >
+                {updater.downloaded ? (
+                  <Sparkles size={18} />
+                ) : updater.downloading ? (
+                  <Download size={18} className="animate-pulse" />
+                ) : (
+                  <RefreshCw size={18} />
+                )}
+              </div>
+              <div>
+                <div className="text-sm font-medium">
+                  {updater.downloaded
+                    ? `v${updater.status.state === "downloaded" ? updater.status.version : ""} hazır`
+                    : updater.downloading
+                      ? `İndiriliyor — %${updater.status.state === "downloading" ? updater.status.percent : 0}`
+                      : updater.available
+                        ? "Güncelleme bulundu, iniyor…"
+                        : "En güncel sürümdesin"}
+                </div>
+                <div
+                  className="text-xs"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  Sürüm: <strong>{info?.appVersion ?? "—"}</strong>
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              {updater.downloaded ? (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onPress={() => void updater.install()}
+                >
+                  <span className="inline-flex items-center gap-1.5">
+                    <RefreshCw size={13} /> Güncelle ve Yeniden Başlat
+                  </span>
+                </Button>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  isDisabled={checking || updater.downloading}
+                  onPress={manualCheck}
+                >
+                  <span className="inline-flex items-center gap-1.5">
+                    <RefreshCw
+                      size={13}
+                      className={checking ? "animate-spin" : ""}
+                    />
+                    {checking ? "Kontrol…" : "Güncelleme Kontrol Et"}
+                  </span>
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {updater.downloading && (
+            <div
+              className="mt-3 h-1.5 w-full overflow-hidden rounded-full"
+              style={{
+                background: "color-mix(in oklch, var(--accent) 15%, transparent)",
+              }}
+            >
+              <div
+                className="h-full rounded-full transition-all"
+                style={{
+                  width: `${updater.status.state === "downloading" ? updater.status.percent : 0}%`,
+                  background: "var(--accent)",
+                }}
+              />
+            </div>
+          )}
+        </div>
+        <p
+          className="mt-2 text-xs"
+          style={{ color: "var(--text-soft)" }}
+        >
+          ℹ️ Sürümler GitHub Releases'tan çekilir. Her 2 saatte bir otomatik
+          kontrol yapılır. İndirilen güncelleme uygulama açıkken arka planda
+          bekler, sen onay verince yüklenir.
+        </p>
       </SectionCard>
 
       {/* Hakkında */}

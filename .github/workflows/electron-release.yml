@@ -1,0 +1,72 @@
+name: Electron Release
+
+# v0.1.1 gibi bir tag push edilince çalışır:
+#   git tag v0.1.1 && git push origin v0.1.1
+#
+# Job: macOS arm64 + Windows x64 + Linux x64 build,
+# çıktıları GitHub Release'a yükler → electron-updater otomatik çekecek.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14   # Apple Silicon runner
+            arch: arm64
+          - os: windows-latest
+            arch: x64
+          - os: ubuntu-latest
+            arch: x64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.1
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+        env:
+          DATABASE_URL: "postgresql://placeholder:placeholder@localhost:5432/placeholder"
+
+      - name: Build Electron
+        run: pnpm electron:build
+
+      - name: Build & Publish (macOS)
+        if: matrix.os == 'macos-14'
+        run: pnpm exec electron-builder --mac --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & Publish (Windows)
+        if: matrix.os == 'windows-latest'
+        run: pnpm exec electron-builder --win --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & Publish (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: pnpm exec electron-builder --linux --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

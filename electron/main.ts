@@ -8,8 +8,84 @@
  */
 
 import { app, BrowserWindow, Menu, shell, dialog, ipcMain, nativeImage, session } from "electron";
+import { autoUpdater } from "electron-updater";
+import log from "electron-log";
 import { join } from "node:path";
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
+
+// Logger setup — electron-updater log'larını ayrı dosyaya yazsın
+log.transports.file.level = "info";
+autoUpdater.logger = log;
+autoUpdater.autoDownload = true;
+autoUpdater.autoInstallOnAppQuit = false; // Kullanıcı butona basana kadar bekle
+
+type UpdateStatus =
+  | { state: "idle" }
+  | { state: "checking" }
+  | { state: "available"; version: string }
+  | { state: "not-available" }
+  | { state: "downloading"; percent: number }
+  | { state: "downloaded"; version: string }
+  | { state: "error"; message: string };
+
+let updateStatus: UpdateStatus = { state: "idle" };
+
+function broadcastUpdate(status: UpdateStatus): void {
+  updateStatus = status;
+  BrowserWindow.getAllWindows().forEach((w) => {
+    if (!w.isDestroyed()) {
+      w.webContents.send("updater:status", status);
+    }
+  });
+}
+
+function setupAutoUpdater(): void {
+  if (isDev) {
+    log.info("[updater] dev modda devre dışı");
+    return;
+  }
+
+  autoUpdater.on("checking-for-update", () => {
+    broadcastUpdate({ state: "checking" });
+  });
+
+  autoUpdater.on("update-available", (info) => {
+    log.info("[updater] güncelleme bulundu:", info.version);
+    broadcastUpdate({ state: "available", version: info.version });
+  });
+
+  autoUpdater.on("update-not-available", () => {
+    broadcastUpdate({ state: "not-available" });
+  });
+
+  autoUpdater.on("download-progress", (progress) => {
+    broadcastUpdate({
+      state: "downloading",
+      percent: Math.round(progress.percent),
+    });
+  });
+
+  autoUpdater.on("update-downloaded", (info) => {
+    log.info("[updater] güncelleme indirildi:", info.version);
+    broadcastUpdate({ state: "downloaded", version: info.version });
+  });
+
+  autoUpdater.on("error", (err) => {
+    log.error("[updater] hata:", err);
+    broadcastUpdate({
+      state: "error",
+      message: err.message ?? "Bilinmeyen güncelleme hatası",
+    });
+  });
+
+  // Açılışta + her 2 saatte bir kontrol
+  void autoUpdater.checkForUpdatesAndNotify().catch((err) => {
+    log.error("[updater] ilk kontrol başarısız:", err);
+  });
+  setInterval(() => {
+    void autoUpdater.checkForUpdates().catch(() => {});
+  }, 2 * 60 * 60 * 1000);
+}
 
 const isDev = !app.isPackaged;
 const DEFAULT_APP_URL = "https://muhasebe.oceanyazilim.com";
@@ -359,9 +435,35 @@ app.whenReady().then(async () => {
   buildMenu();
   createWindow();
 
+  // Auto-updater — production'da GitHub Releases'i kontrol eder
+  setupAutoUpdater();
+
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
+});
+
+// Updater IPC handlers
+ipcMain.handle("updater:get-status", () => updateStatus);
+
+ipcMain.handle("updater:check", async () => {
+  if (isDev) {
+    return { ok: false, error: "Dev modda güncelleme kontrolü yapılmaz" };
+  }
+  try {
+    const result = await autoUpdater.checkForUpdates();
+    return { ok: true, version: result?.updateInfo.version ?? null };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Kontrol başarısız",
+    };
+  }
+});
+
+ipcMain.handle("updater:install", () => {
+  // İndirilen güncellemeyi uygula — app kapanır, yeni sürümle açılır
+  autoUpdater.quitAndInstall(false, true);
 });
 
 app.on("window-all-closed", () => {
