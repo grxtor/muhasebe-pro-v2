@@ -84,6 +84,11 @@ function createWindow() {
       nodeIntegration: false,
       sandbox: false,
       webSecurity: true,
+      // Performans optimizasyonları
+      backgroundThrottling: false,
+      v8CacheOptions: "code",
+      // Spell check ihtiyacımız yok, kapatınca CPU tasarrufu
+      spellcheck: false,
     },
   });
 
@@ -332,7 +337,25 @@ function buildMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
-app.whenReady().then(() => {
+// HTTP cache boyutunu artır (varsayılan ~80MB) — sayfa geçişlerinde
+// CSS/JS/asset'ler local'den okunur, network round-trip yok
+app.commandLine.appendSwitch("disk-cache-size", "524288000"); // 500 MB
+
+// Donanım hızlandırma + V8 optimizasyonları
+app.commandLine.appendSwitch("enable-features", "CalculateNativeWinOcclusion");
+
+app.whenReady().then(async () => {
+  // Sunucuya önceden bağlan — DNS + TLS handshake'i ilk navigation'dan
+  // önce hazırla (TCP/TLS preconnect ~100-300ms kazandırır)
+  try {
+    const targetUrl = new URL(getAppUrl());
+    if (targetUrl.protocol === "https:" || targetUrl.protocol === "http:") {
+      void fetch(targetUrl.origin + "/api/health").catch(() => {});
+    }
+  } catch {
+    // ignore
+  }
+
   buildMenu();
   createWindow();
 

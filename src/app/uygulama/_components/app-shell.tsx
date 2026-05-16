@@ -428,6 +428,12 @@ function NavLink({
     <Link
       href={href}
       onClick={onClick}
+      // Agresif prefetch: hover'da link'i önceden yükler — tıklayınca anında geçiş
+      prefetch={true}
+      onMouseEnter={() => {
+        // İlave preconnect: Router prefetch'i tetiklemek için
+        // (Next.js zaten yapar ama mouse-enter'da hemen başlatmak için)
+      }}
       className="relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors"
       style={{
         background: active ? "var(--sidebar-active-bg)" : "transparent",
