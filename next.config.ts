@@ -43,23 +43,31 @@ const nextConfig: NextConfig = {
     },
   },
 
-  // Cache-Control header'ları — Electron HTTP cache ve tarayıcı cache'i için
+  // Cache-Control header'ları — Electron HTTP cache ve tarayıcı cache'i için.
+  // DEV mode'da static asset cache'i devre dışı bırakılır, aksi takdirde
+  // Turbopack HMR yeni chunk gelse bile tarayıcı eski immutable chunk'ı kullanır.
   async headers() {
+    const isDev = process.env.NODE_ENV !== "production";
     return [
-      // Static asset'ler: 1 yıl cache, immutable
+      // Static asset'ler: prod'da 1 yıl immutable, dev'de no-store
       {
         source: "/_next/static/:path*",
         headers: [
           {
             key: "Cache-Control",
-            value: "public, max-age=31536000, immutable",
+            value: isDev
+              ? "no-store, must-revalidate"
+              : "public, max-age=31536000, immutable",
           },
         ],
       },
       {
         source: "/icons/:path*",
         headers: [
-          { key: "Cache-Control", value: "public, max-age=86400" },
+          {
+            key: "Cache-Control",
+            value: isDev ? "no-store" : "public, max-age=86400",
+          },
         ],
       },
       // Uygulama route'ları: revalidate

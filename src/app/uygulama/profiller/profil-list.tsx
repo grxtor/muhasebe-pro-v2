@@ -59,6 +59,14 @@ export interface ProfilRow {
   notlar: string | null;
   aktif: boolean;
   etiketler: TagRef[];
+  // Promoter metadata (sadece harcamaTuru=Promoter ise dolu)
+  promoterNiche: string | null;
+  promoterTier: string | null;
+  promoterFollowers: number | null;
+  promoterAvgViews: number | null;
+  promoterPricePerVideo: string | null;
+  promoterHasInstagram: boolean | null;
+  promoterHasTikTok: boolean | null;
 }
 
 interface Props {
@@ -177,7 +185,7 @@ export function ProfilList({ profiller, sonrakiKod, tumEtiketler }: Props) {
       <PageHeader
         icon={<Users size={20} />}
         title="Profiller"
-        subtitle="Müşteri ve tedarikçi kayıtları — isim, telefon veya e-posta ile arayın"
+        subtitle="Müşteri, tedarikçi, sanatçı, promoter ve işbirlikçi kayıtları — hepsi tek yerde"
         actions={
           <>
             <Button

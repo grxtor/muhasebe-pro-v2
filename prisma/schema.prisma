@@ -56,6 +56,10 @@ model User {
   kasalar         Kasa[]
   kasaHareketleri KasaHareketi[]
   distributorRaporlar DistributorRapor[] @relation("DistributorUser")
+  muzikProfilleri MuzikProfil[]
+  muzikGelirleri  MuzikGelir[]
+  muzikHarcamalari MuzikHarcama[]
+  sanatciOdemeleri SanatciOdemesi[]
 
   @@index([email])
   @@index([currentOrgId])
@@ -107,6 +111,7 @@ model Organization {
   modulDistributor    Boolean @default(false)
   modulTicaret        Boolean @default(false)
   modulAvans          Boolean @default(false)
+  modulMuzik          Boolean @default(false)
 
   defaultKdvOrani   Decimal @default(20) @db.Decimal(5, 2)
   defaultParaBirimi String  @default("TRY") @db.VarChar(3)
@@ -131,6 +136,10 @@ model Organization {
   kasalar         Kasa[]
   kasaHareketleri KasaHareketi[]
   distributorRaporlar DistributorRapor[]
+  muzikProfilleri  MuzikProfil[]
+  muzikGelirleri   MuzikGelir[]
+  muzikHarcamalari MuzikHarcama[]
+  sanatciOdemeleri SanatciOdemesi[]
 
   olusturmaTarihi  DateTime @default(now())
   guncellemeTarihi DateTime @updatedAt
@@ -221,9 +230,59 @@ enum CariTipi {
 // Harcama profili için alt-kategori (sadece tip=Harcama ise anlamlı)
 enum HarcamaTuru {
   Genel       // Klasik genel harcama (kira, fatura, vs.)
-  Promosyon   // Bir sanatçı/şarkı/video için yapılan promosyon
+  Promosyon   // Bir sanatçı/şarkı/video için yapılan promosyon (legacy alias)
   Avans       // Geri alınabilir ileri tarihli ödeme
   Ticaret     // Yatırım + getiri (alım-satım, döviz, kripto vs.)
+  Sanatci     // Müzik sanatçısı (telif/payout alır)
+  Promoter    // İçerik üreticisi / influencer (reklam karşılığı ödeme)
+  Isbirlikci  // Mix engineer, master, yapımcı, tasarımcı vs.
+}
+
+// Promoter (içerik üreticisi) niş kategorisi
+enum PromoterNiche {
+  Anime
+  Football
+  Movie
+  Formula1Car
+  UFCMMA
+  Trollface
+  DanceVideos
+  ModeClothes
+  Manga
+  TopBoySnowfall
+  HighImpactShatter
+}
+
+// Promoter öncelik kademesi (renkli)
+enum PromoterTier {
+  Low   // kırmızı
+  Mid   // mavi
+  High  // yeşil
+}
+
+// Müzik yayın mağazası / platformu
+enum MuzikMagaza {
+  YouTube
+  Spotify
+  AppleMusic
+  Deezer
+  AmazonMusic
+  TikTok
+  Instagram
+  SoundCloud
+  Diger
+}
+
+// Müzik harcama kategorisi (opsiyonel)
+enum MuzikHarcamaKategori {
+  Reklam
+  Tasarim
+  Produksiyon
+  Klip
+  Mix
+  Master
+  Telif
+  Diger
 }
 
 enum OdemeYonu {
@@ -267,7 +326,7 @@ model Cari {
   kod   String
   unvan String
   tip   CariTipi    @default(Musteri)
-  // tip=Harcama olduğunda kullanılır (Promosyon/Avans/Ticaret/Genel)
+  // tip=Harcama olduğunda kullanılır (Promosyon/Avans/Ticaret/Genel/Sanatci/Promoter/Isbirlikci)
   harcamaTuru HarcamaTuru?
 
   vergiNo       String?
@@ -282,6 +341,15 @@ model Cari {
   notlar        String?
   aktif         Boolean  @default(true)
 
+  // -------- Promoter metadata (sadece harcamaTuru=Promoter ise dolu) --------
+  promoterNiche     PromoterNiche?
+  promoterTier      PromoterTier?
+  promoterFollowers Int?
+  promoterAvgViews  Int?
+  promoterPricePerVideo Decimal? @db.Decimal(18, 2)
+  promoterHasInstagram Boolean?
+  promoterHasTikTok    Boolean?
+
   olusturmaTarihi DateTime @default(now())
   guncellemeTarihi DateTime @updatedAt
 
@@ -292,6 +360,10 @@ model Cari {
   hatirlaticilar Hatirlatici[]
   tekrarlayanlar TekrarlayanKayit[]
   cekSenetler    CekSenet[]
+  // Müzik modülü ilişkileri
+  muzikProfilSanatcilari MuzikProfilSanatci[]
+  muzikHarcamalari       MuzikHarcama[]         @relation("MuzikHarcamaPromoter")
+  sanatciOdemeleri       SanatciOdemesi[]
 
   @@unique([userId, kod])
   @@index([userId])
@@ -321,6 +393,10 @@ model Hareket {
   vadeTarihi  DateTime?   @db.Date
 
   olusturmaTarihi DateTime @default(now())
+
+  // Müzik modülü köprü kayıtları (delete cascade için)
+  muzikHarcama  MuzikHarcama?
+  sanatciOdemesi SanatciOdemesi? @relation("SanatciOdemesiHareket")
 
   @@index([userId, tarih(sort: Desc)])
   @@index([organizationId, tarih(sort: Desc)])
@@ -361,6 +437,10 @@ model OdemeNotu {
   // Distribütör CSV'den geldiyse hangi kayda bağlı
   distributorRaporId Int?
   distributorRapor   DistributorRapor? @relation(fields: [distributorRaporId], references: [id], onDelete: SetNull)
+
+  // Müzik modülü köprü kayıtları
+  muzikHarcama  MuzikHarcama?
+  sanatciOdemesi SanatciOdemesi? @relation("SanatciOdemesiOdemeNotu")
 
   olusturmaTarihi  DateTime @default(now())
   guncellemeTarihi DateTime @updatedAt
@@ -810,6 +890,9 @@ model Kasa {
   aciklama   String? @db.Text
 
   hareketler KasaHareketi[]
+  // Müzik modülü kaynak kasa
+  muzikHarcamalari MuzikHarcama[]
+  sanatciOdemeleri SanatciOdemesi[] @relation("SanatciOdemesiKasa")
 
   olusturmaTarihi  DateTime @default(now())
   guncellemeTarihi DateTime @updatedAt
@@ -846,6 +929,9 @@ model KasaHareketi {
   belgeNo    String?
 
   olusturmaTarihi DateTime @default(now())
+
+  // Müzik modülü köprü kaydı (delete cascade için)
+  muzikHarcama MuzikHarcama?
 
   @@index([organizationId, tarih(sort: Desc)])
   @@index([kasaId, tarih(sort: Desc)])
@@ -889,5 +975,169 @@ model DistributorRapor {
   guncellemeTarihi DateTime @updatedAt
 
   @@index([organizationId, donem])
+  @@index([userId])
+}
+
+// ============================================================
+//  Müzik Ödemeleri modülü
+//  - Bir müzik için izole gelir / harcama / sanatçı ödemesi defteri.
+//  - Harcama kaydedildiğinde opsiyonel olarak `Hareket` + `OdemeNotu`
+//    (Borç) + `KasaHareketi` create edilir → muhasebeye yansır.
+//  - Sanatçılar, Promoter'lar, İşbirlikçiler `Cari` tablosunda tutulur
+//    (tip=Harcama + harcamaTuru=Sanatci/Promoter/Isbirlikci).
+// ============================================================
+
+/// Dağıtılan tekil müzik (örn. "Montagem Vezes Lamento").
+model MuzikProfil {
+  id     Int    @id @default(autoincrement())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  isim String
+  slug String
+  // İşbirlikçiler: serbest text liste ("Mix: Studio Atlas", "Master: Phonk Lab")
+  isbirlikciler String[] @default([])
+  // Yayın mağazaları
+  magazalar     MuzikMagaza[] @default([])
+  notlar        String?
+  aktif         Boolean       @default(true)
+
+  olusturmaTarihi  DateTime @default(now())
+  guncellemeTarihi DateTime @updatedAt
+
+  sanatcilar     MuzikProfilSanatci[]
+  gelirler       MuzikGelir[]
+  harcamalar     MuzikHarcama[]
+  sanatciOdemeleri SanatciOdemesi[]
+
+  @@unique([organizationId, slug])
+  @@index([organizationId, aktif])
+  @@index([userId])
+}
+
+/// Müzik ↔ Sanatçı (Cari) many-to-many. Yüzde yok, sadece kim çaldı.
+model MuzikProfilSanatci {
+  muzikProfilId Int
+  muzikProfil   MuzikProfil @relation(fields: [muzikProfilId], references: [id], onDelete: Cascade)
+  // Sanatçı = Cari (tip=Harcama, harcamaTuru=Sanatci)
+  cariId Int
+  cari   Cari @relation(fields: [cariId], references: [id], onDelete: Cascade)
+
+  olusturmaTarihi DateTime @default(now())
+
+  @@id([muzikProfilId, cariId])
+  @@index([cariId])
+}
+
+/// Müzik geliri kaydı (Spotify/YouTube payout, content ID claim vs.).
+model MuzikGelir {
+  id     Int    @id @default(autoincrement())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  muzikProfilId Int
+  muzikProfil   MuzikProfil @relation(fields: [muzikProfilId], references: [id], onDelete: Cascade)
+
+  tarih      DateTime     @db.Date
+  platform   MuzikMagaza? // opsiyonel — hangi mağazadan geldi
+  tutar      Decimal      @db.Decimal(18, 2)
+  paraBirimi String       @default("USD") @db.VarChar(3)
+  not        String?
+
+  olusturmaTarihi DateTime @default(now())
+
+  @@index([muzikProfilId, tarih(sort: Desc)])
+  @@index([organizationId, tarih(sort: Desc)])
+  @@index([userId])
+}
+
+/// Müzik harcaması (reklam, tasarım, prodüksiyon, klip vs.).
+/// `borclaraYansit=true` ise create sırasında `Hareket` + `OdemeNotu`
+/// + `KasaHareketi` kayıtları transaction içinde oluşturulur.
+model MuzikHarcama {
+  id     Int    @id @default(autoincrement())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  muzikProfilId Int
+  muzikProfil   MuzikProfil @relation(fields: [muzikProfilId], references: [id], onDelete: Cascade)
+
+  tarih      DateTime              @db.Date
+  kategori   MuzikHarcamaKategori? // opsiyonel
+  tutar      Decimal               @db.Decimal(18, 2)
+  paraBirimi String                @default("USD") @db.VarChar(3)
+  not        String?
+
+  // Promoter'a yapılan reklam harcaması ise burası dolar (Cari'de tip=Harcama, harcamaTuru=Promoter)
+  promoterCariId Int?
+  promoterCari   Cari? @relation("MuzikHarcamaPromoter", fields: [promoterCariId], references: [id], onDelete: SetNull)
+
+  // Kaynak kasa (hangi kasadan çıktı) — Kasa modülü açık değilse null kalır
+  kasaId Int?
+  kasa   Kasa? @relation(fields: [kasaId], references: [id], onDelete: SetNull)
+
+  // "Borçlar'a da kaydet" toggle — true ise Hareket+OdemeNotu+KasaHareketi oluşturulur
+  borclaraYansit Boolean @default(true)
+
+  // Köprü kayıtları (transaction içinde set edilir, edit/delete sırasında cascade güncellenir)
+  hareketId   Int?     @unique
+  hareket     Hareket? @relation(fields: [hareketId], references: [id], onDelete: SetNull)
+  odemeNotuId Int?     @unique
+  odemeNotu   OdemeNotu? @relation(fields: [odemeNotuId], references: [id], onDelete: SetNull)
+  kasaHareketiId Int?  @unique
+  kasaHareketi   KasaHareketi? @relation(fields: [kasaHareketiId], references: [id], onDelete: SetNull)
+
+  olusturmaTarihi DateTime @default(now())
+
+  @@index([muzikProfilId, tarih(sort: Desc)])
+  @@index([organizationId, tarih(sort: Desc)])
+  @@index([promoterCariId])
+  @@index([userId])
+}
+
+/// Bir müzik için sanatçıya yapılan ödeme. Yüzde yok, manuel tutar.
+model SanatciOdemesi {
+  id     Int    @id @default(autoincrement())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  muzikProfilId Int
+  muzikProfil   MuzikProfil @relation(fields: [muzikProfilId], references: [id], onDelete: Cascade)
+
+  // Sanatçı = Cari (tip=Harcama, harcamaTuru=Sanatci)
+  sanatciCariId Int
+  sanatciCari   Cari @relation(fields: [sanatciCariId], references: [id], onDelete: Cascade)
+
+  tarih      DateTime @db.Date
+  tutar      Decimal  @db.Decimal(18, 2)
+  paraBirimi String   @default("USD") @db.VarChar(3)
+  not        String?
+
+  // Borçlar/Kasa entegrasyonu (harcamayla aynı pattern)
+  borclaraYansit Boolean @default(true)
+  kasaId         Int?
+  kasa           Kasa?   @relation("SanatciOdemesiKasa", fields: [kasaId], references: [id], onDelete: SetNull)
+  hareketId      Int?    @unique
+  hareket        Hareket? @relation("SanatciOdemesiHareket", fields: [hareketId], references: [id], onDelete: SetNull)
+  odemeNotuId    Int?    @unique
+  odemeNotu      OdemeNotu? @relation("SanatciOdemesiOdemeNotu", fields: [odemeNotuId], references: [id], onDelete: SetNull)
+
+  olusturmaTarihi DateTime @default(now())
+
+  @@index([muzikProfilId, tarih(sort: Desc)])
+  @@index([sanatciCariId, tarih(sort: Desc)])
+  @@index([organizationId, tarih(sort: Desc)])
   @@index([userId])
 }

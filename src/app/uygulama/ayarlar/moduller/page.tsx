@@ -48,6 +48,7 @@ export default async function ModullerAyarlariPage() {
         distributor: distributorSayisi,
         ticaret: 0,
         avans: 0,
+        muzik: 0,
       }}
     />
   );

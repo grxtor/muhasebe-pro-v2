@@ -87,7 +87,7 @@ export function OdemeNotuList({
   const [pending, startTransition] = useTransition();
 
   const isAlacak = yon === OdemeYonu.Alacak;
-  const labelTekil = isAlacak ? "Alacak" : "Borç";
+  const labelTekil = isAlacak ? "Gelir" : "Ödeme";
   const labelEylem = isAlacak ? "Tahsil Et" : "Öde";
 
   const [localQ, setLocalQ] = useState(params.get("q") ?? "");
@@ -180,11 +180,11 @@ export function OdemeNotuList({
     <>
       <PageHeader
         icon={isAlacak ? <TrendingDown size={20} /> : <TrendingUp size={20} />}
-        title={isAlacak ? "Alacaklar" : "Borçlar"}
+        title={isAlacak ? "Gelirler" : "Ödemeler"}
         subtitle={
           isAlacak
-            ? "Bize ödeme yapacaklar — tahsil edilecek tutarlar"
-            : "Bizim ödeyeceklerimiz — tedarikçi ve diğer borçlar"
+            ? "Bize gelen tutarlar — müşterilerden, platformlardan, vs."
+            : "Bizim ödeyeceklerimiz — tedarikçi, sanatçı, promoter vs."
         }
         actions={
           <Button variant="primary" size="md" onPress={openYeni}>
@@ -197,7 +197,7 @@ export function OdemeNotuList({
 
       <div className="mb-4 grid gap-3 sm:grid-cols-3">
         <KpiRow
-          label={isAlacak ? "Bekleyen Tahsilat" : "Bekleyen Ödeme"}
+          label={isAlacak ? "Bekleyen Gelir" : "Bekleyen Ödeme"}
           value={formatPara(parseFloat(istatistikler.toplamBekleyen))}
           tone={isAlacak ? "positive" : "negative"}
         />

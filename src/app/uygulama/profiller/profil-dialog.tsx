@@ -19,6 +19,10 @@ import {
   HarcamaTuru,
   harcamaTuruEtiket,
   harcamaTuruAciklama,
+  PromoterNiche,
+  promoterNicheEtiket,
+  PromoterTier,
+  promoterTierEtiket,
   tagColorClass,
   type TagColor,
 } from "@/lib/enums";
@@ -225,6 +229,15 @@ export function ProfilDialog({
               <option value={HarcamaTuru.Ticaret}>
                 {harcamaTuruEtiket.Ticaret}
               </option>
+              <option value={HarcamaTuru.Sanatci}>
+                {harcamaTuruEtiket.Sanatci}
+              </option>
+              <option value={HarcamaTuru.Promoter}>
+                {harcamaTuruEtiket.Promoter}
+              </option>
+              <option value={HarcamaTuru.Isbirlikci}>
+                {harcamaTuruEtiket.Isbirlikci}
+              </option>
             </Select>
             <p
               className="mt-1.5 text-xs"
@@ -233,6 +246,115 @@ export function ProfilDialog({
               {harcamaTuruAciklama[harcamaTuru]}
             </p>
           </Field>
+        )}
+
+        {/* Promoter metadata — sadece harcamaTuru=Promoter ise */}
+        {isHarcama && harcamaTuru === HarcamaTuru.Promoter && (
+          <div
+            className="rounded-xl border p-4 space-y-3"
+            style={{
+              background: "var(--surface-muted)",
+              borderColor: "var(--border)",
+            }}
+          >
+            <div
+              className="text-[10px] font-semibold uppercase tracking-wider"
+              style={{ color: "var(--text-muted)" }}
+            >
+              Promoter Metadata
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field>
+                <Label htmlFor="promoterNiche">Niş</Label>
+                <Select
+                  id="promoterNiche"
+                  name="promoterNiche"
+                  defaultValue={profil?.promoterNiche ?? ""}
+                >
+                  <option value="">— Seçilmedi —</option>
+                  {Object.values(PromoterNiche).map((n) => (
+                    <option key={n} value={n}>
+                      {promoterNicheEtiket[n]}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field>
+                <Label htmlFor="promoterTier">Tier</Label>
+                <Select
+                  id="promoterTier"
+                  name="promoterTier"
+                  defaultValue={profil?.promoterTier ?? ""}
+                >
+                  <option value="">— Seçilmedi —</option>
+                  {Object.values(PromoterTier).map((t) => (
+                    <option key={t} value={t}>
+                      {promoterTierEtiket[t]}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Field>
+                <Label htmlFor="promoterFollowers">Takipçi</Label>
+                <TextInput
+                  id="promoterFollowers"
+                  name="promoterFollowers"
+                  type="number"
+                  defaultValue={profil?.promoterFollowers ?? ""}
+                  placeholder="1240000"
+                />
+              </Field>
+              <Field>
+                <Label htmlFor="promoterAvgViews">Ort. İzlenme</Label>
+                <TextInput
+                  id="promoterAvgViews"
+                  name="promoterAvgViews"
+                  type="number"
+                  defaultValue={profil?.promoterAvgViews ?? ""}
+                  placeholder="480000"
+                />
+              </Field>
+              <Field>
+                <Label htmlFor="promoterPricePerVideo" hint="USD">
+                  Video Fiyatı
+                </Label>
+                <TextInput
+                  id="promoterPricePerVideo"
+                  name="promoterPricePerVideo"
+                  type="number"
+                  step="0.01"
+                  defaultValue={profil?.promoterPricePerVideo ?? ""}
+                  placeholder="350"
+                />
+              </Field>
+            </div>
+            <div className="flex flex-wrap items-center gap-4">
+              <label className="inline-flex cursor-pointer items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  name="promoterHasInstagram"
+                  value="true"
+                  defaultChecked={profil?.promoterHasInstagram ?? false}
+                  className="size-4 rounded"
+                  style={{ accentColor: "var(--accent)" }}
+                />
+                <span>Instagram</span>
+              </label>
+              <label className="inline-flex cursor-pointer items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  name="promoterHasTikTok"
+                  value="true"
+                  defaultChecked={profil?.promoterHasTikTok ?? false}
+                  className="size-4 rounded"
+                  style={{ accentColor: "var(--accent)" }}
+                />
+                <span>TikTok</span>
+              </label>
+            </div>
+          </div>
         )}
 
         {!isHarcama && (

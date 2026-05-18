@@ -35,6 +35,7 @@ import {
   BarChart3,
   HandCoins,
   LineChart,
+  Music,
 } from "lucide-react";
 import { Button } from "@heroui/react";
 
@@ -66,8 +67,8 @@ interface NavGroup {
  */
 function buildNavGroups(moduller: ModuleFlags, role: OrgRole): NavGroup[] {
   const muhasebe: NavItem[] = [
-    { href: "/uygulama/alacaklar", label: "Alacaklar", icon: TrendingDown },
-    { href: "/uygulama/borclar", label: "Borçlar", icon: TrendingUp },
+    { href: "/uygulama/alacaklar", label: "Gelirler", icon: TrendingDown },
+    { href: "/uygulama/borclar", label: "Ödemeler", icon: TrendingUp },
   ];
   if (moduller.faturalar) {
     muhasebe.push({
@@ -144,6 +145,15 @@ function buildNavGroups(moduller: ModuleFlags, role: OrgRole): NavGroup[] {
     });
   }
 
+  const muzikIcerik: NavItem[] = [];
+  if (moduller.muzik) {
+    muzikIcerik.push({
+      href: "/uygulama/muzik-odemeleri",
+      label: "Müzik Ödemeleri",
+      icon: Music,
+    });
+  }
+
   const kisisel: NavItem[] = [];
   if (moduller.hatirlaticilar) {
     kisisel.push({
@@ -173,6 +183,9 @@ function buildNavGroups(moduller: ModuleFlags, role: OrgRole): NavGroup[] {
     },
     { label: "Muhasebe", items: muhasebe },
     { label: "Kayıtlar", items: kayitlar },
+    ...(muzikIcerik.length
+      ? [{ label: "Müzik & İçerik", items: muzikIcerik }]
+      : []),
     { label: "Kişisel", items: kisisel },
   ];
 }

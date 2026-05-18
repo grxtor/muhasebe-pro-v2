@@ -44,10 +44,33 @@ export async function createProfil(formData: FormData): Promise<ActionResult> {
       ? (parsed.data.harcamaTuru ?? HarcamaTuru.Genel)
       : null;
 
+  // Promoter metadata yalnız harcamaTuru=Promoter ise tutulur
+  const promoterPayload =
+    harcamaTuru === HarcamaTuru.Promoter
+      ? {
+          promoterNiche: parsed.data.promoterNiche,
+          promoterTier: parsed.data.promoterTier,
+          promoterFollowers: parsed.data.promoterFollowers,
+          promoterAvgViews: parsed.data.promoterAvgViews,
+          promoterPricePerVideo: parsed.data.promoterPricePerVideo,
+          promoterHasInstagram: parsed.data.promoterHasInstagram,
+          promoterHasTikTok: parsed.data.promoterHasTikTok,
+        }
+      : {
+          promoterNiche: null,
+          promoterTier: null,
+          promoterFollowers: null,
+          promoterAvgViews: null,
+          promoterPricePerVideo: null,
+          promoterHasInstagram: null,
+          promoterHasTikTok: null,
+        };
+
   await db.cari.create({
     data: {
       ...parsed.data,
       harcamaTuru,
+      ...promoterPayload,
       userId: ctx.userId,
       organizationId: ctx.orgId,
     },
@@ -104,9 +127,30 @@ export async function updateProfil(
       ? (parsed.data.harcamaTuru ?? HarcamaTuru.Genel)
       : null;
 
+  const promoterPayload =
+    harcamaTuru === HarcamaTuru.Promoter
+      ? {
+          promoterNiche: parsed.data.promoterNiche,
+          promoterTier: parsed.data.promoterTier,
+          promoterFollowers: parsed.data.promoterFollowers,
+          promoterAvgViews: parsed.data.promoterAvgViews,
+          promoterPricePerVideo: parsed.data.promoterPricePerVideo,
+          promoterHasInstagram: parsed.data.promoterHasInstagram,
+          promoterHasTikTok: parsed.data.promoterHasTikTok,
+        }
+      : {
+          promoterNiche: null,
+          promoterTier: null,
+          promoterFollowers: null,
+          promoterAvgViews: null,
+          promoterPricePerVideo: null,
+          promoterHasInstagram: null,
+          promoterHasTikTok: null,
+        };
+
   await db.cari.update({
     where: { id },
-    data: { ...parsed.data, harcamaTuru },
+    data: { ...parsed.data, harcamaTuru, ...promoterPayload },
   });
 
   await logAction({

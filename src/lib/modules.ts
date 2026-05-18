@@ -17,7 +17,8 @@ export type ModuleKey =
   | "kdvBeyan"
   | "distributor"
   | "ticaret"
-  | "avans";
+  | "avans"
+  | "muzik";
 
 export interface ModuleConfig {
   key: ModuleKey;
@@ -101,6 +102,13 @@ export const OPTIONAL_MODULES: ModuleConfig[] = [
     description: "Geri alınabilir ileri tarihli ödemelerin takibi",
     href: "/uygulama/avans",
   },
+  {
+    key: "muzik",
+    label: "Müzik Ödemeleri",
+    description:
+      "Dağıttığın müzikler için gelir / harcama / sanatçı ödemesi / şirket kâr takibi. Harcamalar Borçlar'a otomatik düşer.",
+    href: "/uygulama/muzik-odemeleri",
+  },
 ];
 
 export interface ModuleFlags {
@@ -116,6 +124,7 @@ export interface ModuleFlags {
   distributor: boolean;
   ticaret: boolean;
   avans: boolean;
+  muzik: boolean;
 }
 
 export const DEFAULT_MODULES: ModuleFlags = {
@@ -131,6 +140,8 @@ export const DEFAULT_MODULES: ModuleFlags = {
   distributor: false,
   ticaret: false,
   avans: false,
+  // Mockup aşamasında varsayılan açık; prod kullanıma alındığında false yapılır
+  muzik: true,
 };
 
 export function readModuleFlags(
@@ -147,6 +158,7 @@ export function readModuleFlags(
     modulDistributor: boolean;
     modulTicaret: boolean;
     modulAvans: boolean;
+    modulMuzik: boolean;
   }> | null,
 ): ModuleFlags {
   if (!settings) return DEFAULT_MODULES;
@@ -165,5 +177,6 @@ export function readModuleFlags(
     distributor: settings.modulDistributor ?? DEFAULT_MODULES.distributor,
     ticaret: settings.modulTicaret ?? DEFAULT_MODULES.ticaret,
     avans: settings.modulAvans ?? DEFAULT_MODULES.avans,
+    muzik: settings.modulMuzik ?? DEFAULT_MODULES.muzik,
   };
 }

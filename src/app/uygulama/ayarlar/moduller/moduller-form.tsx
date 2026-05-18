@@ -17,6 +17,7 @@ import {
   BarChart3,
   LineChart,
   HandCoins,
+  Music,
 } from "lucide-react";
 import { SectionCard } from "../profil-form";
 import { updateModuller } from "../actions";
@@ -35,6 +36,7 @@ const MODULE_ICONS: Record<ModuleKey, React.ComponentType<{ size?: number }>> = 
   distributor: BarChart3,
   ticaret: LineChart,
   avans: HandCoins,
+  muzik: Music,
 };
 
 interface Props {
@@ -64,6 +66,10 @@ export function ModullerForm({ flags, stats }: Props) {
       if (state.cekSenet) fd.set("modulCekSenet", "true");
       if (state.kasa) fd.set("modulKasa", "true");
       if (state.kdvBeyan) fd.set("modulKdvBeyan", "true");
+      if (state.distributor) fd.set("modulDistributor", "true");
+      if (state.ticaret) fd.set("modulTicaret", "true");
+      if (state.avans) fd.set("modulAvans", "true");
+      if (state.muzik) fd.set("modulMuzik", "true");
 
       const r = await updateModuller(fd);
       if (r.ok) {

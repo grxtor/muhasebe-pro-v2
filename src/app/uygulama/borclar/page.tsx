@@ -3,7 +3,7 @@ import { getOrgId } from "@/lib/auth-helpers";
 import { OdemeYonu, OdemeDurumu } from "@/lib/enums";
 import { OdemeNotuList } from "../_lib/odeme-notu-list";
 
-export const metadata = { title: "Borçlar" };
+export const metadata = { title: "Ödemeler" };
 export const dynamic = "force-dynamic";
 
 export default async function BorclarPage({

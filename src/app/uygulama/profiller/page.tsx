@@ -13,10 +13,20 @@ export const dynamic = "force-dynamic";
 export default async function ProfillerPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; tip?: string; etiket?: string }>;
+  searchParams: Promise<{
+    q?: string;
+    tip?: string;
+    etiket?: string;
+    harcamaTuru?: string;
+  }>;
 }) {
   const orgId = await getOrgId();
-  const { q = "", tip = "", etiket = "" } = await searchParams;
+  const {
+    q = "",
+    tip = "",
+    etiket = "",
+    harcamaTuru = "",
+  } = await searchParams;
   const etiketId = etiket ? Number(etiket) : 0;
 
   const [profiller, tumEtiketler] = await Promise.all([
@@ -24,6 +34,9 @@ export default async function ProfillerPage({
       where: {
         organizationId: orgId,
         ...(tip ? { tip: tip as never } : {}),
+        ...(harcamaTuru
+          ? { harcamaTuru: harcamaTuru as never, tip: "Harcama" as never }
+          : {}),
         ...(etiketId > 0
           ? { etiketler: { some: { tagId: etiketId } } }
           : {}),
@@ -73,6 +86,13 @@ export default async function ProfillerPage({
     notlar: p.notlar,
     aktif: p.aktif,
     etiketler: p.etiketler.map((e) => e.tag),
+    promoterNiche: p.promoterNiche,
+    promoterTier: p.promoterTier,
+    promoterFollowers: p.promoterFollowers,
+    promoterAvgViews: p.promoterAvgViews,
+    promoterPricePerVideo: p.promoterPricePerVideo?.toString() ?? null,
+    promoterHasInstagram: p.promoterHasInstagram,
+    promoterHasTikTok: p.promoterHasTikTok,
   }));
 
   return (

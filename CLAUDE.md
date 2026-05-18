@@ -155,7 +155,7 @@ set -a && source .env.local && set +a && pnpm exec tsc --noEmit
 
 ---
 
-## 📦 Modüller (12)
+## 📦 Modüller (13)
 
 | Modül | Default | Açıklama |
 |-------|---------|----------|
@@ -171,6 +171,9 @@ set -a && source .env.local && set +a && pnpm exec tsc --noEmit
 | Distribütör | ❌ | Spotify/YouTube CSV |
 | Ticaret | ❌ | Yatırım+getiri |
 | Avans | ❌ | İleri tarihli ödemeler |
+| **Müzik Ödemeleri** 🆕 | ❌ | Müzik bazlı gelir/harcama/sanatçı ödemesi/net kâr — Borçlar+Kasa entegre |
+
+> 🆕 Müzik modülü için **Sanatçı / Promoter / İşbirlikçi profilleri Profiller sayfasında** yaşar (Cari.tip=Harcama, harcamaTuru=Sanatci/Promoter/Isbirlikci). Promoter için niş/tier/takipçi metadata Cari'de kolon olarak tutulur.
 
 ---
 
@@ -256,12 +259,201 @@ set -a && source .env.local && set +a && pnpm exec tsc --noEmit
 
 ---
 
+## 🗺 Roadmap — Müzik & İçerik (MAXVARO)
+
+MAXVARO Group için müzik label muhasebesi katmanı. Kağıt notlardan çıkarılan
+2 yeni modül:
+
+### 1. Promoter / Sanatçı / İşbirlikçi → Profiller'de
+Ayrı bir "İçerik Üreticileri" sayfası **YOK**. Tüm bu profiller Cari
+tablosunda yaşar:
+
+- `Cari.tip = Harcama`
+- `Cari.harcamaTuru ∈ { Sanatci, Promoter, Isbirlikci }`
+
+Promoter için Cari'de ek kolonlar (sadece `harcamaTuru=Promoter` ise dolar):
+- `promoterNiche` (`PromoterNiche` enum, 11 değer: Anime, Football, Movie,
+  Formula1Car, UFCMMA, Trollface, DanceVideos, ModeClothes, Manga,
+  TopBoySnowfall, HighImpactShatter)
+- `promoterTier` (Low/Mid/High — kırmızı/mavi/yeşil)
+- `promoterFollowers`, `promoterAvgViews`, `promoterPricePerVideo`
+- `promoterHasInstagram`, `promoterHasTikTok`
+
+> Profiller sayfasında tip filtresi `Sanatci/Promoter/Isbirlikci` ile bu
+> profiller listelenir. CSV import Profiller sayfasından yapılır.
+
+### 2. Müzik Ödemeleri (`/uygulama/muzik-odemeleri`)
+Dağıttığın müzikler için izole gelir/harcama defteri.
+
+- **MuzikProfil** = isim + sanatçılar (Cari M2M `MuzikProfilSanatci`) +
+  işbirlikçiler (string[]) + mağazalar (`MuzikMagaza[]`) + notlar
+- **3 kayıt türü** (her biri ayrı tablo + ayrı model):
+  - **MuzikGelir** — tarih + tutar + (opsiyonel) `platform: MuzikMagaza` + not
+  - **MuzikHarcama** — tarih + tutar + (opsiyonel) `kategori:
+    MuzikHarcamaKategori` (Reklam/Tasarım/Prodüksiyon/Klip/Mix/Master/Telif/
+    Diğer) + (opsiyonel) `promoterCariId` (Cari FK) + `kasaId` (Kasa FK) +
+    `not` + **`borclaraYansit` toggle** (default ON)
+  - **SanatciOdemesi** — tarih + `sanatciCariId` (Cari FK, harcamaTuru=Sanatci)
+    + tutar + not (yüzde yok, manuel) + `borclaraYansit`
+- **Net Kâr** = ΣGelir − ΣHarcama − ΣSanatçı Ödemesi (in-memory hesaplanır)
+- **Liste sayfa**: kompakt **KPI strip** + müzik **tablosu** (Müzik /
+  Mağazalar / Gelir / Harcama / Sanatçı / Net Kâr / Detay)
+- **Detay sayfa**: `/uygulama/muzik-odemeleri/[slug]` — Üst meta + KPI strip
+  + platform chip strip + 3 sekme tablo
+- **Yeni Müzik dialog**: inline "İlk harcamalar (opsiyonel)" bölümü —
+  birden fazla harcama tek formda eklenir, müzik create ile aynı
+  transaction'da hepsi kaydedilir.
+
+### Borçlar + Kasa köprüsü (otomatik)
+
+Harcama veya sanatçı ödemesi create edildiğinde, `borclaraYansit=true`
+ise aynı Prisma `$transaction` içinde:
+
+1. `Hareket` (tip=Borc, cariId=promoter or sanatçı, tutar, tarih,
+   aciklama="[müzik adı] · [kategori]")
+2. `OdemeNotu` (yon=Borc, durum=Odendi, cariId, vade=tarih, tutar)
+3. `KasaHareketi` (kasaId, tip=Cikis, tutar) — `kasaId` set edilmişse
+4. `MuzikHarcama.hareketId / odemeNotuId / kasaHareketiId` FK'leri set
+   edilir → delete cascade ile silinince muhasebe kayıtları da silinir
+
+Detay sayfa tablo satırlarında **`Borçlar'da` badge** (warning rengi) ile
+işaretlenir; tıklayınca ileride ilgili `OdemeNotu`'na yönlendirilebilir.
+
+### Faz planı
+
+| Faz | Kapsam | Durum |
+|-----|--------|-------|
+| **1 — Mockup** | UI iskeleti, mock data, sidebar + modül toggle, tüm dialog'lar; tablo bazlı liste; kompakt KPI strip; Borçlar köprüsü toggle; Kasa default seçim; inline harcama; İçerik Üreticileri sayfası kaldırıldı (Profiller'e taşındı) | ✅ Tamamlandı |
+| **2a — Prisma schema migration** | `MuzikProfil`, `MuzikProfilSanatci`, `MuzikGelir`, `MuzikHarcama`, `SanatciOdemesi` modelleri; `PromoterNiche`, `PromoterTier`, `MuzikMagaza`, `MuzikHarcamaKategori` enum'ları; `HarcamaTuru`'na +Sanatci/+Promoter/+Isbirlikci; Cari'ye promoter kolonları; `Organization.modulMuzik`; tüm back-relation'lar | ✅ DB push OK |
+| **2b — Server Actions + UI bağlama** | `muzik-odemeleri/actions.ts` (CRUD + Borçlar+Kasa transaction köprüsü); selector helper'lar (`listSanatcilarForSelect`, `listPromoterlarForSelect`, `listAktiveKasalarForSelect`); page'ler DB'ye bağlı (Decimal→Number serialize); 3 detay dialog'u + müzik dialog'u gerçek action'a bağlı; mock dosyaları silindi; Profiller dialog'una promoter metadata alanları + Sanatci/Promoter/Isbirlikci tipleri; profil-list `ProfilRow` genişledi; profiller/page `harcamaTuru` URL filtresi; ayarlar `modulMuzik` toggle backend bağlı; mevcut bug fix (distributor/ticaret/avans modül flag submit'i eksikti) | ✅ Tamamlandı |
+| **3 — Mağaza geliri köprüsü** | Müzik geliri için opsiyonel `Alacak/Hareket` üretimi (kullanıcı onayıyla); CSV import (Profiller'de promoter); müzik profili edit dialog'u | ⏳ Sıradaki |
+| **4 — Fatura / Stok iş kuralı sertleştirme** | Kağıttaki gelen/giden fatura akışı, e-irsaliye, stok ↔ borç mahsup | ⏳ Ayrı planlama |
+
+### Yeni dosya/yapı
+
+```
+prisma/schema.prisma                            # +MuzikProfil/Sanatci(M2M)/Gelir/Harcama/SanatciOdemesi
+                                                # +5 enum, Cari'ye promoter kolonları, Organization.modulMuzik
+src/lib/enums.ts                                # +PromoterNiche/Tier/Magaza/HarcamaKategori
+                                                # +HarcamaTuru.Sanatci/Promoter/Isbirlikci
+src/lib/modules.ts                              # +muzik (ModuleKey + flags) — promoter modülü yok
+src/lib/module-guard.ts                         # modulMuzik dahil tüm flag select
+src/lib/schemas/profil.ts                       # +promoter metadata field'ları
+src/lib/schemas/muzik.ts                        # Yeni: 4 Zod schema + slugify helper
+src/app/uygulama/_components/app-shell.tsx      # "Müzik & İçerik" sidebar grubu (tek item)
+src/app/uygulama/ayarlar/actions.ts             # modulSchema + updateModuller +modulMuzik
+src/app/uygulama/ayarlar/moduller/page.tsx      # stats objesi +muzik
+src/app/uygulama/ayarlar/moduller/moduller-form.tsx  # MODULE_ICONS +muzik; submit'te
+                                                # +modulDistributor/Ticaret/Avans/Muzik (mevcut bug fix)
+src/app/uygulama/profiller/
+   ├── page.tsx                                 # +harcamaTuru URL filtresi; +promoter alanları serialize
+   ├── actions.ts                               # create/update +promoter payload (sadece Promoter ise)
+   ├── profil-list.tsx                          # ProfilRow tipi +promoter metadata
+   └── profil-dialog.tsx                        # +Sanatci/Promoter/Isbirlikci enum option'ları;
+                                                # +Promoter metadata kartı (niş/tier/takipçi/IG/TT)
+src/app/uygulama/muzik-odemeleri/
+   ├── page.tsx                                 # Server: db.muzikProfil.findMany + özet hesabı
+   ├── actions.ts                               # CRUD + Borçlar+Kasa transaction köprüsü
+   │                                            # + listSanatcilar/Promoterlar/Kasalar selector'ları
+   ├── muzik-list.tsx                           # Tablo + kompakt KPI strip + arama (DB bağlı)
+   ├── muzik-dialog.tsx                         # Yeni müzik — Cari sanatçı select + inline harcama
+   ├── _stat-strip.tsx                          # Kompakt yatay KPI şerit (reusable)
+   └── [slug]/
+       ├── page.tsx                             # Server: muzikProfil + 3 child + Decimal→Number
+       ├── muzik-detail.tsx                     # Üst meta + 4 KPI + platform kırılım + 3 tab
+       │                                        # + Borçlar'da badge + delete confirm
+       ├── gelir-dialog.tsx                     # createMuzikGelir action
+       ├── harcama-dialog.tsx                   # createMuzikHarcama (+Promoter+Kasa+Borçlar toggle)
+       └── sanatci-odemesi-dialog.tsx           # createSanatciOdemesi (+Kasa+Borçlar toggle)
+```
+
+### Dialog pattern — `setState-in-effect` yasağı
+
+React 19 + Next 16 lint kuralı: useEffect içinde direkt `setState()` yasak.
+**Tüm yeni dialog'lar iki katmanlıdır:**
+
+```tsx
+export function FooDialog({ open, onClose, editing }: Props) {
+  if (!open) return null;
+  return <FooDialogInner onClose={onClose} editing={editing} />;
+}
+
+function FooDialogInner({ ... }) {
+  const [form, setForm] = useState<FormState>(() => initialForm(editing));
+  // ... useEffect yok, mount/unmount ile reset
+}
+```
+
+Outer wrapper open prop'una göre mount/unmount eder; iç bileşen useState lazy
+initializer ile başlar. State reset otomatik (her açılış = yeni mount).
+
+### Müzik harcaması transaction flow (uygulandı)
+
+`src/app/uygulama/muzik-odemeleri/actions.ts:harcamaIcinKopruIle()`:
+
+```ts
+await db.$transaction(async (tx) => {
+  // 1. Cari belirle (promoter yoksa "MUZ-SISTEM" kodlu sistem carisi)
+  const cariId = promoterCariId ?? (await ensureSistemMuzikCarisi(tx, ...)).id;
+
+  // 2. Hareket (Borc)
+  const hareket = await tx.hareket.create({ tip: "Borc", cariId, ... });
+
+  // 3. OdemeNotu (Borc, Odendi)
+  const odemeNotu = await tx.odemeNotu.create({
+    yon: "Borc", durum: "Odendi", odenenTutar, odemeTarihi, ...
+  });
+
+  // 4. KasaHareketi (opsiyonel, kasaId varsa)
+  const kasaH = kasaId ? await tx.kasaHareketi.create({ tip: "Cikis", ... }) : null;
+
+  // 5. MuzikHarcama + köprü FK'leri
+  await tx.muzikHarcama.create({
+    ..., hareketId, odemeNotuId, kasaHareketiId
+  });
+});
+```
+
+`SanatciOdemesi` aynı pattern — promoter yerine `sanatciCariId` direkt
+Cari'den gelir.
+
+### Delete davranışı
+
+`deleteMuzikHarcama` ve `deleteSanatciOdemesi` köprü kayıtlarını da temizler:
+
+```ts
+await db.$transaction(async (tx) => {
+  if (h.hareketId) await tx.hareket.delete({ where: { id: h.hareketId } }).catch(() => {});
+  if (h.odemeNotuId) await tx.odemeNotu.delete({ where: { id: h.odemeNotuId } }).catch(() => {});
+  if (h.kasaHareketiId) await tx.kasaHareketi.delete({ where: { id: h.kasaHareketiId } }).catch(() => {});
+  await tx.muzikHarcama.delete({ where: { id } });
+});
+```
+
+(Schema'da köprüler `onDelete: SetNull`, cascade değil — manuel temizleniyor.)
+
+### Faz 3 checklist (sıradaki)
+
+1. Müzik geliri için opsiyonel `Alacak/Hareket` üretimi — dialog'a
+   "Alacaklar'a da kaydet" toggle, transaction içinde `OdemeNotu(Alacak)`
+   + `Hareket(Alacak)` create
+2. Müzik profili edit dialog'u (şu an sadece create — update için ayrı
+   action ve UI)
+3. CSV import için Profiller (Promoter satırları niş/tier/takipçi
+   kolonlarıyla tanınır, `xlsx` ile parse + Zod doğrulama)
+4. `module-guard.ts` zaten modulMuzik dahil — diğer modüller (distributor/
+   ticaret/avans/kdvBeyan) için de runtime guard eksik, ekle
+5. Yetersiz kasa bakiyesi uyarısı (harcama dialog'da seçili kasanın
+   bakiyesi gösteriliyor — pre-check ekle)
+
+---
+
 ## 📞 Hızlı Referans
 
 - **Repo**: https://github.com/grxtor/muhasebe-pro-v2
 - **Web**: https://muhasebe.oceanyazilim.com
 - **Dokploy**: https://panel.oceanyazilim.com
 - **Owner**: `abdullah.huseyin.efe@outlook.com`
-- **Mevcut sürüm**: v1.0.9
+- **Mevcut sürüm**: v1.1.0
 
 — bu dosya her büyük değişiklikten sonra güncellenir
