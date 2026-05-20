@@ -60,23 +60,30 @@ export function CommandPalette({ cariler = [] }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
 
+  const openPalette = useCallback(() => {
+    setQuery("");
+    setSelected(0);
+    setOpen(true);
+  }, []);
+
   // ⌘K — palet aç/kapat
   useKeyboardShortcut({
     keys: "mod+k",
     allowInInput: true,
-    handler: () => setOpen((v) => !v),
+    handler: () => {
+      if (isOpen) setOpen(false);
+      else openPalette();
+    },
   });
 
   // / — palet aç (input'lar dışında)
   useKeyboardShortcut({
     keys: "/",
-    handler: () => setOpen(true),
+    handler: openPalette,
   });
 
   useEffect(() => {
     if (isOpen) {
-      setQuery("");
-      setSelected(0);
       setTimeout(() => inputRef.current?.focus(), 50);
       document.body.style.overflow = "hidden";
     } else {
@@ -117,11 +124,11 @@ export function CommandPalette({ cariler = [] }: Props) {
         group: "Hızlı Eylem",
       },
       {
-        id: "yeni-alacak",
-        label: "Yeni Alacak",
-        description: "Tahsil edilecek tutar",
+        id: "yeni-gelir",
+        label: "Yeni Gelir",
+        description: "Gelen tutar",
         icon: Plus,
-        keywords: ["tahsilat", "gelir"],
+        keywords: ["tahsilat", "gelir", "alacak"],
         action: () => go("/uygulama/alacaklar?yeni=1"),
         group: "Hızlı Eylem",
       },
@@ -182,7 +189,7 @@ export function CommandPalette({ cariler = [] }: Props) {
       {
         id: "alacaklar",
         label: "Gelirler",
-        icon: TrendingDown,
+        icon: TrendingUp,
         keywords: ["alacak", "tahsil", "gelir"],
         action: () => go("/uygulama/alacaklar"),
         group: "Sayfalar",
@@ -190,7 +197,7 @@ export function CommandPalette({ cariler = [] }: Props) {
       {
         id: "borclar",
         label: "Ödemeler",
-        icon: TrendingUp,
+        icon: TrendingDown,
         keywords: ["borç", "borc", "ödeme", "odeme"],
         action: () => go("/uygulama/borclar"),
         group: "Sayfalar",
@@ -390,7 +397,11 @@ export function CommandPalette({ cariler = [] }: Props) {
 
   // Selected index düzenle
   useEffect(() => {
-    if (selected >= filtered.length) setSelected(Math.max(0, filtered.length - 1));
+    if (selected < filtered.length) return;
+    const id = window.setTimeout(() => {
+      setSelected(Math.max(0, filtered.length - 1));
+    }, 0);
+    return () => window.clearTimeout(id);
   }, [filtered, selected]);
 
   // Selected'ı görüntüye getir

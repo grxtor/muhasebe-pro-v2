@@ -3,15 +3,19 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { getUserId } from "@/lib/auth-helpers";
+import { getOrgContext } from "@/lib/auth-helpers";
 import { logAction } from "@/lib/audit";
+import {
+  createFaturaFromTemplate,
+  hesaplaFaturaTutarlari,
+  nextFaturaNoForOrg,
+} from "@/lib/finance-flow";
 import {
   TekrarSiklik,
   TekrarTip,
   OdemeYonu,
   FaturaYonu,
   OdemeDurumu,
-  FaturaDurumu,
 } from "@/lib/enums";
 
 export type ActionResult = { ok: true; data?: unknown } | { ok: false; error: string };
@@ -78,7 +82,7 @@ function addPeriod(date: Date, siklik: string): Date {
 export async function createTekrarlayan(
   formData: FormData,
 ): Promise<ActionResult> {
-  const userId = await getUserId();
+  const ctx = await getOrgContext();
   const parsed = parseFD(formData);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Geçersiz" };
@@ -86,14 +90,15 @@ export async function createTekrarlayan(
   const data = parsed.data;
 
   const cari = await db.cari.findFirst({
-    where: { id: data.cariId, userId },
+    where: { id: data.cariId, organizationId: ctx.orgId },
     select: { id: true },
   });
   if (!cari) return { ok: false, error: "Profil bulunamadı" };
 
   const t = await db.tekrarlayanKayit.create({
     data: {
-      userId,
+      userId: ctx.userId,
+      organizationId: ctx.orgId,
       ad: data.ad,
       tip: data.tip,
       cariId: data.cariId,
@@ -112,7 +117,8 @@ export async function createTekrarlayan(
   });
 
   await logAction({
-    userId,
+    userId: ctx.userId,
+    organizationId: ctx.orgId,
     islem: "create",
     entity: "TekrarlayanKayit",
     entityId: t.id,
@@ -127,17 +133,23 @@ export async function updateTekrarlayan(
   id: number,
   formData: FormData,
 ): Promise<ActionResult> {
-  const userId = await getUserId();
+  const ctx = await getOrgContext();
   const parsed = parseFD(formData);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Geçersiz" };
   }
 
   const existing = await db.tekrarlayanKayit.findFirst({
-    where: { id, userId },
+    where: { id, organizationId: ctx.orgId },
     select: { id: true },
   });
   if (!existing) return { ok: false, error: "Kayıt bulunamadı" };
+
+  const cari = await db.cari.findFirst({
+    where: { id: parsed.data.cariId, organizationId: ctx.orgId },
+    select: { id: true },
+  });
+  if (!cari) return { ok: false, error: "Profil bulunamadı" };
 
   await db.tekrarlayanKayit.update({
     where: { id },
@@ -159,7 +171,8 @@ export async function updateTekrarlayan(
   });
 
   await logAction({
-    userId,
+    userId: ctx.userId,
+    organizationId: ctx.orgId,
     islem: "update",
     entity: "TekrarlayanKayit",
     entityId: id,
@@ -171,9 +184,9 @@ export async function updateTekrarlayan(
 }
 
 export async function deleteTekrarlayan(id: number): Promise<ActionResult> {
-  const userId = await getUserId();
+  const ctx = await getOrgContext();
   const existing = await db.tekrarlayanKayit.findFirst({
-    where: { id, userId },
+    where: { id, organizationId: ctx.orgId },
     select: { ad: true },
   });
   if (!existing) return { ok: false, error: "Kayıt bulunamadı" };
@@ -181,7 +194,8 @@ export async function deleteTekrarlayan(id: number): Promise<ActionResult> {
   await db.tekrarlayanKayit.delete({ where: { id } });
 
   await logAction({
-    userId,
+    userId: ctx.userId,
+    organizationId: ctx.orgId,
     islem: "delete",
     entity: "TekrarlayanKayit",
     entityId: id,
@@ -198,9 +212,9 @@ export async function deleteTekrarlayan(id: number): Promise<ActionResult> {
  * eklenecek; şimdilik kullanıcı manuel tetikler.
  */
 export async function generateNext(id: number): Promise<ActionResult> {
-  const userId = await getUserId();
+  const ctx = await getOrgContext();
   const t = await db.tekrarlayanKayit.findFirst({
-    where: { id, userId, aktif: true },
+    where: { id, organizationId: ctx.orgId, aktif: true },
     include: { cari: { select: { id: true, unvan: true } } },
   });
   if (!t) return { ok: false, error: "Aktif kayıt bulunamadı" };
@@ -211,53 +225,33 @@ export async function generateNext(id: number): Promise<ActionResult> {
 
   const tarih = new Date(t.sonrakiTarih);
   const vadeTarihi = new Date(tarih.getTime() + t.vadeGun * 86_400_000);
-  const kdvTutari = +(Number(t.tutar) * (Number(t.kdvOrani) / 100)).toFixed(2);
-  const toplamTutar = +(Number(t.tutar) + kdvTutari).toFixed(2);
+  const { kdvTutari, toplamTutar } = hesaplaFaturaTutarlari(
+    Number(t.tutar),
+    Number(t.kdvOrani),
+  );
 
   await db.$transaction(async (tx) => {
     if (t.tip === TekrarTip.Fatura) {
-      // Fatura no auto-generate
-      const count = await tx.fatura.count({ where: { userId } });
-      const yil = tarih.getFullYear();
-      const faturaNo = `${yil}-${String(count + 1).padStart(4, "0")}`;
-      const fatura = await tx.fatura.create({
-        data: {
-          userId,
-          cariId: t.cariId,
-          yon:
-            t.yon === OdemeYonu.Alacak
-              ? FaturaYonu.Gonderilen
-              : FaturaYonu.Gelen,
-          faturaNo,
-          tarih,
-          vadeTarihi,
-          isAciklamasi: t.aciklama || t.ad,
-          tutar: t.tutar,
-          kdvOrani: t.kdvOrani,
-          kdvTutari,
-          toplamTutar,
-          paraBirimi: t.paraBirimi,
-          durum: FaturaDurumu.Beklemede,
-        },
-      });
-      await tx.odemeNotu.create({
-        data: {
-          userId,
-          cariId: t.cariId,
-          yon: t.yon as never,
-          baslik: `${t.ad} — ${faturaNo}`,
-          aciklama: t.aciklama,
-          tutar: toplamTutar,
-          paraBirimi: t.paraBirimi,
-          vadeTarihi,
-          durum: OdemeDurumu.Beklemede,
-          faturaId: fatura.id,
-        },
+      const faturaNo = await nextFaturaNoForOrg(tx, ctx.orgId, tarih);
+      await createFaturaFromTemplate(tx, ctx, {
+        cariId: t.cariId,
+        yon:
+          t.yon === OdemeYonu.Alacak ? FaturaYonu.Gonderilen : FaturaYonu.Gelen,
+        faturaNo,
+        tarih,
+        vadeTarihi,
+        isAciklamasi: t.aciklama || t.ad,
+        tutar: t.tutar,
+        kdvOrani: t.kdvOrani,
+        kdvTutari,
+        toplamTutar,
+        paraBirimi: t.paraBirimi,
       });
     } else {
       await tx.odemeNotu.create({
         data: {
-          userId,
+          userId: ctx.userId,
+          organizationId: ctx.orgId,
           cariId: t.cariId,
           yon: t.yon as never,
           baslik: t.ad,
@@ -281,7 +275,8 @@ export async function generateNext(id: number): Promise<ActionResult> {
   });
 
   await logAction({
-    userId,
+    userId: ctx.userId,
+    organizationId: ctx.orgId,
     islem: "create",
     entity: "TekrarlayanKayit",
     entityId: id,
@@ -300,9 +295,9 @@ export async function toggleAktif(
   id: number,
   aktif: boolean,
 ): Promise<ActionResult> {
-  const userId = await getUserId();
+  const ctx = await getOrgContext();
   await db.tekrarlayanKayit.updateMany({
-    where: { id, userId },
+    where: { id, organizationId: ctx.orgId },
     data: { aktif },
   });
   revalidatePath("/uygulama/tekrarlayanlar");

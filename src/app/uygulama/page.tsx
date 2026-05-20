@@ -243,7 +243,7 @@ export default async function Anasayfa() {
       {/* 1) Ana KPI kartları */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          label="Toplam Alacak"
+          label="Toplam Gelir"
           value={formatPara(alacak)}
           hint={
             vadesiGecenAlacak > 0
@@ -268,7 +268,7 @@ export default async function Anasayfa() {
           label="Net Bakiye"
           value={formatPara(net)}
           hint={
-            net >= 0 ? "Alacaklı pozisyondasınız" : "Borçlu pozisyondasınız"
+            net >= 0 ? "Gelir tarafı önde" : "Ödeme tarafı önde"
           }
           tone="brand"
           icon={<BarChart3 size={20} />}
@@ -311,7 +311,7 @@ export default async function Anasayfa() {
       {/* Yaklaşan tahsilat/ödeme kartları */}
       <div className="grid gap-4 lg:grid-cols-2">
         <YaklasanKart
-          baslik="Yaklaşan Tahsilatlar"
+          baslik="Yaklaşan Gelirler"
           href="/uygulama/alacaklar"
           items={yaklasanAlacak.map((o) => ({
             id: o.id,
@@ -322,7 +322,7 @@ export default async function Anasayfa() {
             paraBirimi: o.paraBirimi,
           }))}
           tone="positive"
-          bosMesaj="Bekleyen tahsilat yok"
+          bosMesaj="Bekleyen gelir yok"
           ikon={<Users size={20} />}
         />
         <YaklasanKart

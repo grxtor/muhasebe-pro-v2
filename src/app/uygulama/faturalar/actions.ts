@@ -6,11 +6,13 @@ import { getOrgContext } from "@/lib/auth-helpers";
 import { logAction } from "@/lib/audit";
 import { faturaSchema } from "@/lib/schemas/fatura";
 import {
-  FaturaYonu,
-  OdemeDurumu,
-  OdemeYonu,
+  createOdemeNotuForFatura,
+  hesaplaFaturaTutarlari,
+} from "@/lib/finance-flow";
+import {
   faturaYonuEtiket,
   faturaDurumuEtiket,
+  FaturaYonu,
 } from "@/lib/enums";
 
 export type ActionResult<T = unknown> =
@@ -22,12 +24,6 @@ function fdToObject(formData: FormData): Record<string, unknown> {
   for (const [k, v] of formData.entries()) o[k] = v;
   if (!("odemeNotuOlustur" in o)) o.odemeNotuOlustur = false;
   return o;
-}
-
-function hesapla(tutar: number, oran: number) {
-  const kdvTutari = +(tutar * (oran / 100)).toFixed(2);
-  const toplamTutar = +(tutar + kdvTutari).toFixed(2);
-  return { kdvTutari, toplamTutar };
 }
 
 export async function nextFaturaNo(): Promise<string> {
@@ -59,7 +55,10 @@ export async function createFatura(formData: FormData): Promise<ActionResult> {
     return { ok: false, error: `${data.faturaNo} numaralı fatura zaten var` };
   }
 
-  const { kdvTutari, toplamTutar } = hesapla(data.tutar, data.kdvOrani);
+  const { kdvTutari, toplamTutar } = hesaplaFaturaTutarlari(
+    data.tutar,
+    data.kdvOrani,
+  );
   const vadeTarihi =
     data.vadeTarihi ?? new Date(data.tarih.getTime() + 30 * 86_400_000);
 
@@ -85,23 +84,15 @@ export async function createFatura(formData: FormData): Promise<ActionResult> {
     });
 
     if (data.odemeNotuOlustur) {
-      await tx.odemeNotu.create({
-        data: {
-          userId: ctx.userId,
-          organizationId: ctx.orgId,
-          cariId: data.cariId,
-          yon:
-            data.yon === FaturaYonu.Gonderilen
-              ? OdemeYonu.Alacak
-              : OdemeYonu.Borc,
-          baslik: `Fatura ${data.faturaNo}`,
-          aciklama: data.isAciklamasi,
-          tutar: toplamTutar,
-          paraBirimi: data.paraBirimi,
-          vadeTarihi,
-          durum: OdemeDurumu.Beklemede,
-          faturaId: fatura.id,
-        },
+      await createOdemeNotuForFatura(tx, ctx, {
+        faturaId: fatura.id,
+        cariId: data.cariId,
+        faturaNo: data.faturaNo,
+        faturaYonu: data.yon,
+        isAciklamasi: data.isAciklamasi,
+        toplamTutar,
+        paraBirimi: data.paraBirimi,
+        vadeTarihi,
       });
     }
 
@@ -153,7 +144,10 @@ export async function updateFatura(
     return { ok: false, error: `${data.faturaNo} numaralı fatura zaten var` };
   }
 
-  const { kdvTutari, toplamTutar } = hesapla(data.tutar, data.kdvOrani);
+  const { kdvTutari, toplamTutar } = hesaplaFaturaTutarlari(
+    data.tutar,
+    data.kdvOrani,
+  );
 
   await db.fatura.update({
     where: { id },

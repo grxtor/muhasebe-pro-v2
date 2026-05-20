@@ -181,7 +181,7 @@ export function AylikGelirGiderChart({ data }: { data: AylikSeriPoint[] }) {
             />
             <Bar
               dataKey="alacak"
-              name="Alacak"
+              name="Gelir"
               fill={positive}
               radius={[4, 4, 0, 0]}
               maxBarSize={32}
@@ -201,7 +201,7 @@ export function AylikGelirGiderChart({ data }: { data: AylikSeriPoint[] }) {
 }
 
 /* ============================================================
-   2) Bekleyen Alacak/Borç Pie Chart
+   2) Bekleyen Gelir/Ödeme Pie Chart
    ============================================================ */
 
 export function BekleyenPieChart({ data }: { data: BekleyenPie }) {
@@ -209,13 +209,13 @@ export function BekleyenPieChart({ data }: { data: BekleyenPie }) {
   const negative = useCssVar("--negative", "#dc2626");
 
   const slices = [
-    { key: "alacak", name: "Bekleyen Alacaklar", value: data.alacak, color: positive },
-    { key: "borc", name: "Bekleyen Borçlar", value: data.borc, color: negative },
+    { key: "alacak", name: "Bekleyen Gelirler", value: data.alacak, color: positive },
+    { key: "borc", name: "Bekleyen Ödemeler", value: data.borc, color: negative },
   ];
   const toplam = data.alacak + data.borc;
 
   return (
-    <Kart baslik="Bekleyen Bakiyeler" altBaslik="Açık alacak ve borçlar">
+    <Kart baslik="Bekleyen Bakiyeler" altBaslik="Açık gelir ve ödemeler">
       {toplam === 0 ? (
         <div
           className="grid h-[250px] place-items-center text-sm"

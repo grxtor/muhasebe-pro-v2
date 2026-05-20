@@ -6,12 +6,25 @@ import { Button } from "@heroui/react";
 import { toast } from "sonner";
 import { Link2 } from "lucide-react";
 import { DataModal } from "@/components/ui/data-modal";
-import { Field, Label, TextInput, TextArea, Select } from "@/components/ui/form-field";
+import {
+  Field,
+  Label,
+  TextInput,
+  TextArea,
+  Select,
+  FormGrid,
+  MoneyField,
+} from "@/components/ui/form-field";
+import { Combobox } from "@/components/ui/combobox";
+import { SwitchRow } from "@/components/ui/switch";
 import {
   MuzikHarcamaKategori,
   muzikHarcamaKategoriEtiket,
+  CariTipi,
+  HarcamaTuru,
 } from "@/lib/enums";
 import { createMuzikHarcama } from "../actions";
+import { createCariInline } from "@/app/uygulama/profiller/actions";
 import type { PromoterOption, KasaOption } from "./muzik-detail";
 
 interface Props {
@@ -59,10 +72,14 @@ function HarcamaDialogInner({
   const router = useRouter();
   const bugun = new Date().toISOString().slice(0, 10);
   const varsayilanKasa = kasalar.find((k) => k.varsayilan) ?? kasalar[0];
+
   const [tarih, setTarih] = useState(bugun);
   const [kategori, setKategori] = useState<string>("");
   const [tutar, setTutar] = useState("");
-  const [promoterCariId, setPromoterCariId] = useState<string>("");
+  const [promoterSecimi, setPromoterSecimi] = useState<{
+    id: string | null;
+    label: string;
+  }>({ id: null, label: "" });
   const [kasaId, setKasaId] = useState<string>(
     varsayilanKasa ? String(varsayilanKasa.id) : "",
   );
@@ -78,13 +95,31 @@ function HarcamaDialogInner({
       return;
     }
     setSaving(true);
+
+    /* Yeni promoter mı? Önce Cari oluştur */
+    let resolvedPromoterId = promoterSecimi.id;
+    if (!resolvedPromoterId && promoterSecimi.label) {
+      const created = await createCariInline({
+        unvan: promoterSecimi.label,
+        tip: CariTipi.Harcama,
+        harcamaTuru: HarcamaTuru.Promoter,
+      });
+      if (!created.ok) {
+        setSaving(false);
+        toast.error(`Yeni promoter oluşturulamadı: ${created.error}`);
+        return;
+      }
+      resolvedPromoterId = String(created.data!.id);
+      toast.success(`Yeni promoter oluşturuldu: ${created.data!.unvan}`);
+    }
+
     const fd = new FormData();
     fd.set("muzikProfilId", String(muzikProfilId));
     fd.set("tarih", tarih);
     fd.set("tutar", tutar);
     fd.set("paraBirimi", "USD");
     if (kategori) fd.set("kategori", kategori);
-    if (promoterCariId) fd.set("promoterCariId", promoterCariId);
+    if (resolvedPromoterId) fd.set("promoterCariId", resolvedPromoterId);
     if (kasaId) fd.set("kasaId", kasaId);
     fd.set("borclaraYansit", borclaraYansit ? "true" : "false");
     if (not) fd.set("not", not);
@@ -104,6 +139,12 @@ function HarcamaDialogInner({
     onClose();
   }
 
+  const promoterOptions = promoterlar.map((p) => ({
+    value: String(p.id),
+    label: p.ad,
+    hint: p.fiyat ? `$${p.fiyat}` : undefined,
+  }));
+
   return (
     <DataModal
       isOpen={true}
@@ -112,18 +153,25 @@ function HarcamaDialogInner({
       title="Yeni Harcama"
       description={muzikIsim}
       footer={
-        <div className="flex justify-end gap-2">
+        <>
           <Button variant="ghost" size="md" onPress={onClose} isDisabled={saving}>
             Vazgeç
           </Button>
           <Button variant="primary" size="md" onPress={handleSave} isDisabled={saving}>
             {saving ? "Kaydediliyor…" : "Kaydet"}
           </Button>
-        </div>
+        </>
       }
     >
-      <div className="space-y-3">
-        <div className="grid gap-3 grid-cols-2">
+      <div className="space-y-4">
+        <MoneyField
+          name="tutar"
+          fixedCurrency="USD"
+          value={tutar}
+          onValueChange={setTutar}
+        />
+
+        <FormGrid cols={2}>
           <Field>
             <Label htmlFor="hTarih" required>
               Tarih
@@ -137,22 +185,6 @@ function HarcamaDialogInner({
             />
           </Field>
 
-          <Field>
-            <Label htmlFor="hTutar" hint="USD" required>
-              Tutar
-            </Label>
-            <TextInput
-              id="hTutar"
-              name="tutar"
-              type="number"
-              placeholder="500"
-              value={tutar}
-              onChange={(e) => setTutar(e.target.value)}
-            />
-          </Field>
-        </div>
-
-        <div className="grid gap-3 grid-cols-3">
           <Field>
             <Label htmlFor="hKategori" hint="opsiyonel">
               Kategori
@@ -171,35 +203,38 @@ function HarcamaDialogInner({
               ))}
             </Select>
           </Field>
+        </FormGrid>
 
+        <FormGrid cols={2}>
           <Field>
             <Label htmlFor="hPromoter" hint="reklam ise">
               Promoter
             </Label>
-            <Select
+            <Combobox
               id="hPromoter"
-              name="promoterId"
-              value={promoterCariId}
-              onChange={(e) => setPromoterCariId(e.target.value)}
-            >
-              <option value="">— Yok —</option>
-              {promoterlar.map((p) => (
-                <option key={p.id} value={String(p.id)}>
-                  {p.ad}
-                  {p.fiyat ? ` ($${p.fiyat})` : ""}
-                </option>
-              ))}
-            </Select>
+              options={promoterOptions}
+              value={promoterSecimi.id}
+              newLabel={
+                !promoterSecimi.id && promoterSecimi.label
+                  ? promoterSecimi.label
+                  : undefined
+              }
+              placeholder="Promoter ara veya yeni ekle…"
+              createLabel={(t) => `Yeni promoter: "${t}"`}
+              emptyHint="Promoter yok — yeni eklemek için yaz"
+              onChange={(sel) =>
+                setPromoterSecimi({
+                  id: sel.isNew ? null : sel.value,
+                  label: sel.label,
+                })
+              }
+            />
           </Field>
 
           <Field>
             <Label
               htmlFor="hKasa"
-              hint={
-                seciliKasa
-                  ? `${seciliKasa.paraBirimi}`
-                  : "kasa yok"
-              }
+              hint={seciliKasa ? seciliKasa.paraBirimi : "opsiyonel"}
             >
               Kasa
             </Label>
@@ -209,7 +244,7 @@ function HarcamaDialogInner({
               value={kasaId}
               onChange={(e) => setKasaId(e.target.value)}
             >
-              <option value="">— Yok (sadece müzik defteri) —</option>
+              <option value="">— Yok —</option>
               {kasalar.map((k) => (
                 <option key={k.id} value={String(k.id)}>
                   {k.ad}
@@ -218,7 +253,7 @@ function HarcamaDialogInner({
               ))}
             </Select>
           </Field>
-        </div>
+        </FormGrid>
 
         <Field>
           <Label htmlFor="hNot" hint="opsiyonel">
@@ -234,53 +269,18 @@ function HarcamaDialogInner({
           />
         </Field>
 
-        {/* Borçlar yansıtma toggle */}
-        <button
-          type="button"
-          onClick={() => setBorclaraYansit(!borclaraYansit)}
-          className="flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors"
-          style={{
-            background: borclaraYansit
-              ? "var(--warning-soft)"
-              : "var(--surface-muted)",
-            borderColor: borclaraYansit
-              ? "color-mix(in oklch, var(--warning) 30%, transparent)"
-              : "var(--border)",
-          }}
-        >
-          <span
-            aria-hidden
-            className="mt-0.5 grid size-4 shrink-0 place-items-center rounded-sm border-2"
-            style={{
-              background: borclaraYansit ? "var(--warning)" : "transparent",
-              borderColor: borclaraYansit
-                ? "var(--warning)"
-                : "var(--border-strong)",
-              color: "#fff",
-            }}
-          >
-            {borclaraYansit && "✓"}
-          </span>
-          <div className="flex-1">
-            <div
-              className="flex items-center gap-1.5 text-sm font-medium"
-              style={{
-                color: borclaraYansit ? "var(--warning)" : "var(--text)",
-              }}
-            >
+        <SwitchRow
+          checked={borclaraYansit}
+          onChange={setBorclaraYansit}
+          label={
+            <span className="inline-flex items-center gap-1.5">
               <Link2 size={13} />
               Borçlar&apos;a da kaydet
-            </div>
-            <div
-              className="mt-0.5 text-xs"
-              style={{ color: "var(--text-muted)" }}
-            >
-              Bu harcama Borçlar / Hareketler / Kasa Hareketleri tablolarına
-              otomatik düşer. Promoter seçildiyse o promoter&apos;a borç olarak
-              bağlanır; yoksa &ldquo;Müzik Harcamaları (Sistem)&rdquo; carisine.
-            </div>
-          </div>
-        </button>
+            </span>
+          }
+          description="Borçlar / Hareketler / Kasa tablolarına otomatik düşer. Promoter yoksa Sistem carisine bağlanır."
+          tone="warning"
+        />
       </div>
     </DataModal>
   );

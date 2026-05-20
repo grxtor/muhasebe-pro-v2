@@ -8,6 +8,7 @@ import {
   useState,
   type InputHTMLAttributes,
 } from "react";
+import { createPortal } from "react-dom";
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
 
 /**
@@ -108,6 +109,40 @@ export function DateInput({
   const reactId = useId();
   const id = idProp ?? `date-${reactId}`;
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+
+  /** Trigger pozisyonunu hesapla — popover'ı viewport'a sığdır. */
+  function computePos() {
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (!rect) return null;
+    const POPOVER_W = 288;
+    const POPOVER_H_APPROX = 320;
+    const GAP = 6;
+    /* Sağa hizala — trigger right'tan başla, sola doğru */
+    let left = rect.right - POPOVER_W;
+    /* Viewport sol sınırından küçükse sola hizala (trigger left'tan) */
+    if (left < 8) left = rect.left;
+    /* Sağ sınırı aşmasın */
+    left = Math.min(left, window.innerWidth - POPOVER_W - 8);
+    left = Math.max(8, left);
+
+    /* Default trigger altına. Aşağı sığmazsa üstüne. */
+    let top = rect.bottom + GAP;
+    if (top + POPOVER_H_APPROX > window.innerHeight - 8) {
+      top = rect.top - POPOVER_H_APPROX - GAP;
+      if (top < 8) top = 8;
+    }
+    return { top, left };
+  }
+
+  function toggleOpen() {
+    if (disabled) return;
+    if (!open) {
+      const p = computePos();
+      if (p) setPos(p);
+    }
+    setOpen((o) => !o);
+  }
 
   // Calendar view state — açılırken seçili tarih ya da bugün
   const today = useMemo(() => {
@@ -161,6 +196,21 @@ export function DateInput({
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
+
+  // Window resize / scroll — popover pozisyonunu güncelle
+  useEffect(() => {
+    if (!open) return;
+    function reposition() {
+      const p = computePos();
+      if (p) setPos(p);
+    }
+    window.addEventListener("resize", reposition);
+    window.addEventListener("scroll", reposition, true);
+    return () => {
+      window.removeEventListener("resize", reposition);
+      window.removeEventListener("scroll", reposition, true);
+    };
   }, [open]);
 
   function commit(d: Date) {
@@ -226,10 +276,10 @@ export function DateInput({
         ref={triggerRef}
         id={id}
         type="button"
-        onClick={() => !disabled && setOpen((o) => !o)}
+        onClick={toggleOpen}
         disabled={disabled}
         autoFocus={autoFocus}
-        className={`flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2.5 text-sm outline-none transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+        className={`flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm outline-none transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
           open ? "ring-2 ring-offset-0" : ""
         }`}
         style={{
@@ -244,11 +294,13 @@ export function DateInput({
         <CalendarIcon size={14} style={{ color: "var(--text-muted)" }} />
       </button>
 
-      {open && (
+      {open && pos && typeof document !== "undefined" && createPortal(
         <div
           ref={popoverRef}
-          className="absolute top-full right-0 z-50 mt-1.5 w-72 rounded-xl border p-3 shadow-2xl"
+          className="fixed z-[60] w-72 rounded-xl border p-3 shadow-2xl"
           style={{
+            top: pos.top,
+            left: pos.left,
             background: "var(--surface)",
             borderColor: "var(--border-strong)",
           }}
@@ -392,7 +444,8 @@ export function DateInput({
               Temizle
             </button>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

@@ -15,7 +15,8 @@ import {
 import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { TextInput } from "@/components/ui/form-field";
-import { muzikMagazaEtiket, type MuzikMagaza } from "@/lib/enums";
+import { type MuzikMagaza } from "@/lib/enums";
+import { PlatformAvatarStack } from "@/components/ui/platform-icon";
 import { StatStrip } from "./_stat-strip";
 import { MuzikDialog } from "./muzik-dialog";
 
@@ -165,6 +166,7 @@ export function MuzikList({ rows, icon }: Props) {
 }
 
 function MuzikTable({ rows }: { rows: Row[] }) {
+  const router = useRouter();
   return (
     <div
       className="overflow-hidden rounded-xl border"
@@ -176,7 +178,7 @@ function MuzikTable({ rows }: { rows: Row[] }) {
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead
-            className="border-b text-left text-xs font-semibold uppercase tracking-wide"
+            className="border-b text-left text-[11px] font-semibold uppercase tracking-wider"
             style={{
               background: "var(--surface-muted)",
               borderColor: "var(--border)",
@@ -184,54 +186,57 @@ function MuzikTable({ rows }: { rows: Row[] }) {
             }}
           >
             <tr>
-              <th className="px-4 py-3">Müzik</th>
-              <th className="px-4 py-3">Mağazalar</th>
-              <th className="px-4 py-3 text-right">Gelir</th>
-              <th className="px-4 py-3 text-right">Harcama</th>
-              <th className="px-4 py-3 text-right">Sanatçı</th>
-              <th className="px-4 py-3 text-right">Net Kâr</th>
-              <th className="px-4 py-3 text-right">Detay</th>
+              <th className="px-4 py-2.5">Müzik</th>
+              <th className="px-4 py-2.5">Platformlar</th>
+              <th className="px-4 py-2.5 text-right">Gelir</th>
+              <th className="px-4 py-2.5 text-right">Harcama</th>
+              <th className="px-4 py-2.5 text-right">Sanatçı</th>
+              <th className="px-4 py-2.5 text-right">Net Kâr</th>
+              <th className="w-12 px-4 py-2.5" />
             </tr>
           </thead>
           <tbody>
-            {rows.map(({ profil, ozet }) => {
+            {rows.map(({ profil, ozet }, i) => {
               const karIyi = ozet.sirketKar >= 0;
+              const detailUrl = `/uygulama/muzik-odemeleri/${profil.slug}`;
               return (
                 <tr
                   key={profil.id}
-                  className="border-b transition-colors hover:bg-black/[0.015] dark:hover:bg-white/[0.025]"
-                  style={{ borderColor: "var(--border)" }}
+                  onClick={() => router.push(detailUrl)}
+                  className="group cursor-pointer transition-colors hover:bg-[color-mix(in_oklch,var(--accent)_5%,transparent)]"
+                  style={{
+                    borderTop:
+                      i === 0 ? "none" : "1px solid var(--border)",
+                  }}
                 >
                   <td className="px-4 py-3">
-                    <Link
-                      href={`/uygulama/muzik-odemeleri/${profil.slug}`}
-                      className="block"
-                    >
-                      <div className="font-medium hover:underline">
-                        {profil.isim}
-                      </div>
+                    <div className="font-medium leading-tight">
+                      {profil.isim}
+                    </div>
+                    {profil.sanatcilar.length > 0 && (
                       <div
-                        className="mt-0.5 text-xs"
+                        className="mt-0.5 truncate text-xs"
                         style={{ color: "var(--text-soft)" }}
                       >
                         {profil.sanatcilar.map((s) => s.ad).join(", ")}
                       </div>
-                    </Link>
+                    )}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-1">
-                      {profil.magazalar.slice(0, 3).map((m) => (
-                        <MagazaChip key={m} magaza={m} />
-                      ))}
-                      {profil.magazalar.length > 3 && (
-                        <span
-                          className="text-[10px]"
-                          style={{ color: "var(--text-soft)" }}
-                        >
-                          +{profil.magazalar.length - 3}
-                        </span>
-                      )}
-                    </div>
+                    {profil.magazalar.length > 0 ? (
+                      <PlatformAvatarStack
+                        platforms={profil.magazalar}
+                        size={20}
+                        max={5}
+                      />
+                    ) : (
+                      <span
+                        className="text-xs"
+                        style={{ color: "var(--text-soft)" }}
+                      >
+                        —
+                      </span>
+                    )}
                   </td>
                   <td
                     className="px-4 py-3 text-right font-semibold tabular-nums"
@@ -253,7 +258,7 @@ function MuzikTable({ rows }: { rows: Row[] }) {
                   </td>
                   <td className="px-4 py-3 text-right">
                     <span
-                      className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-bold tabular-nums"
+                      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold tabular-nums"
                       style={{
                         background: karIyi
                           ? "var(--positive-soft)"
@@ -261,18 +266,19 @@ function MuzikTable({ rows }: { rows: Row[] }) {
                         color: karIyi ? "var(--positive)" : "var(--negative)",
                       }}
                     >
-                      {karIyi ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+                      {karIyi ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
                       ${ozet.sirketKar.toLocaleString("en-US")}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right">
                     <Link
-                      href={`/uygulama/muzik-odemeleri/${profil.slug}`}
-                      className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium hover:bg-black/5 dark:hover:bg-white/5"
-                      style={{ color: "var(--brand)" }}
+                      href={detailUrl}
+                      onClick={(e) => e.stopPropagation()}
+                      aria-label="Detay"
+                      className="inline-flex size-7 items-center justify-center rounded-md opacity-0 transition-opacity group-hover:opacity-100"
+                      style={{ color: "var(--text-muted)" }}
                     >
-                      <Eye size={12} />
-                      Detay
+                      <Eye size={14} />
                     </Link>
                   </td>
                 </tr>
@@ -282,19 +288,5 @@ function MuzikTable({ rows }: { rows: Row[] }) {
         </table>
       </div>
     </div>
-  );
-}
-
-function MagazaChip({ magaza }: { magaza: MuzikMagaza }) {
-  return (
-    <span
-      className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium"
-      style={{
-        background: "var(--brand-soft)",
-        color: "var(--brand)",
-      }}
-    >
-      {muzikMagazaEtiket[magaza]}
-    </span>
   );
 }

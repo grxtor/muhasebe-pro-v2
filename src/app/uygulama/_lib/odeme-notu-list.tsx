@@ -12,6 +12,8 @@ import {
   TrendingDown,
   TrendingUp,
   CalendarClock,
+  List,
+  CalendarRange,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header";
@@ -19,6 +21,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Select, TextInput } from "@/components/ui/form-field";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { BulkActionBar, deleteBulkAction } from "@/components/ui/bulk-action-bar";
+import { MonthAccordion, ViewToggle } from "@/components/ui/month-accordion";
 import { useBulkSelect } from "@/lib/hooks/use-bulk-select";
 import { bulkDeleteOdemeNotlari } from "@/lib/bulk-actions";
 import { OdemeNotuDialog } from "./odeme-notu-dialog";
@@ -33,6 +36,7 @@ import {
   CariTipi,
   harcamaTuruEtiket,
   type HarcamaTuru,
+  type MuzikMagaza,
 } from "@/lib/enums";
 import { formatPara, formatTarih, formatVade } from "@/lib/format";
 
@@ -64,10 +68,21 @@ export interface CariRef {
   harcamaTuru: string | null;
 }
 
+export interface MuzikRef {
+  id: number;
+  isim: string;
+  magazalar: MuzikMagaza[];
+  isbirlikciler: string[];
+  notlar: string | null;
+  sanatcilar: { id: number; ad: string }[];
+}
+
 interface Props {
   yon: typeof OdemeYonu.Alacak | typeof OdemeYonu.Borc;
   items: OdemeNotuRow[];
   cariler: CariRef[];
+  muzikler: MuzikRef[];
+  muzikEnabled: boolean;
   istatistikler: {
     toplamBekleyen: string;
     vadesiGecen: number;
@@ -79,6 +94,8 @@ export function OdemeNotuList({
   yon,
   items,
   cariler,
+  muzikler,
+  muzikEnabled,
   istatistikler,
 }: Props) {
   const router = useRouter();
@@ -113,12 +130,24 @@ export function OdemeNotuList({
     });
   }
 
-  const [dialogOpen, setDialogOpen] = useState(false);
+  /* Komut paletten ?yeni=1 ile geldiyse dialog'u otomatik aç ve URL'i temizle */
+  const [dialogOpen, setDialogOpen] = useState(() => params.get("yeni") === "1");
+  useEffect(() => {
+    if (params.get("yeni") === "1") {
+      const url = new URLSearchParams(params.toString());
+      url.delete("yeni");
+      router.replace(`${pathname}?${url.toString()}`, { scroll: false });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [editing, setEditing] = useState<OdemeNotuRow | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<OdemeNotuRow | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [tahsilTarget, setTahsilTarget] = useState<OdemeNotuRow | null>(null);
   const [tahsiling, setTahsiling] = useState(false);
+
+  // View mode — Liste / Aylık
+  const [view, setView] = useState<"liste" | "aylik">("liste");
 
   // Bulk
   const bulk = useBulkSelect(items);
@@ -133,7 +162,7 @@ export function OdemeNotuList({
       toast.success(`${r.count} kayıt silindi`);
       bulk.clear();
       setBulkDeleteOpen(false);
-      router.refresh();
+      startTransition(() => router.refresh());
     } else toast.error(r.error);
   }
 
@@ -154,7 +183,7 @@ export function OdemeNotuList({
     if (result.ok) {
       toast.success(`"${deleteTarget.baslik}" silindi`);
       setDeleteTarget(null);
-      router.refresh();
+      startTransition(() => router.refresh());
     } else {
       toast.error(result.error);
     }
@@ -179,7 +208,7 @@ export function OdemeNotuList({
   return (
     <>
       <PageHeader
-        icon={isAlacak ? <TrendingDown size={20} /> : <TrendingUp size={20} />}
+        icon={isAlacak ? <TrendingUp size={20} /> : <TrendingDown size={20} />}
         title={isAlacak ? "Gelirler" : "Ödemeler"}
         subtitle={
           isAlacak
@@ -213,8 +242,8 @@ export function OdemeNotuList({
         />
       </div>
 
-      <div className="mb-4 grid gap-2 sm:grid-cols-[1fr_220px]">
-        <div className="relative">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <div className="relative min-w-0 flex-1">
           <Search
             size={16}
             className="pointer-events-none absolute top-3 left-3"
@@ -227,21 +256,31 @@ export function OdemeNotuList({
             className="pl-9"
           />
         </div>
-        <Select value={durum} onChange={(e) => changeDurum(e.target.value)}>
-          <option value="">Tüm Durumlar</option>
-          <option value={OdemeDurumu.Beklemede}>
-            {odemeDurumuEtiket.Beklemede}
-          </option>
-          <option value={OdemeDurumu.KismiOdendi}>
-            {odemeDurumuEtiket.KismiOdendi}
-          </option>
-          <option value={OdemeDurumu.Odendi}>
-            {odemeDurumuEtiket.Odendi}
-          </option>
-          <option value={OdemeDurumu.Iptal}>
-            {odemeDurumuEtiket.Iptal}
-          </option>
-        </Select>
+        <div className="w-48 shrink-0">
+          <Select value={durum} onChange={(e) => changeDurum(e.target.value)}>
+            <option value="">Tüm Durumlar</option>
+            <option value={OdemeDurumu.Beklemede}>
+              {odemeDurumuEtiket.Beklemede}
+            </option>
+            <option value={OdemeDurumu.KismiOdendi}>
+              {odemeDurumuEtiket.KismiOdendi}
+            </option>
+            <option value={OdemeDurumu.Odendi}>
+              {odemeDurumuEtiket.Odendi}
+            </option>
+            <option value={OdemeDurumu.Iptal}>
+              {odemeDurumuEtiket.Iptal}
+            </option>
+          </Select>
+        </div>
+        <ViewToggle
+          value={view}
+          onChange={(v) => setView(v as "liste" | "aylik")}
+          options={[
+            { value: "liste", label: "Liste", icon: <List size={12} /> },
+            { value: "aylik", label: "Aylık", icon: <CalendarRange size={12} /> },
+          ]}
+        />
       </div>
 
       {items.length === 0 ? (
@@ -261,6 +300,100 @@ export function OdemeNotuList({
             </Button>
           }
         />
+      ) : view === "aylik" ? (
+        <MonthAccordion
+          items={items}
+          getDate={(o) => o.vadeTarihi}
+          getAmount={(o) => parseFloat(o.tutar) - parseFloat(o.odenenTutar)}
+          getCurrency={(o) => o.paraBirimi}
+          tone={isAlacak ? "positive" : "negative"}
+          defaultOpenCount={1}
+          renderGroup={(g) => (
+            <ul>
+              {g.items.map((o, i) => {
+                const tutar = parseFloat(o.tutar);
+                const odenen = parseFloat(o.odenenTutar);
+                const kalan = tutar - odenen;
+                const vade = formatVade(o.vadeTarihi);
+                const bitti =
+                  o.durum === OdemeDurumu.Odendi ||
+                  o.durum === OdemeDurumu.Iptal;
+                return (
+                  <li
+                    key={o.id}
+                    onClick={() => openDuzenle(o)}
+                    className="group flex cursor-pointer items-center gap-3 px-4 py-2.5 transition-colors hover:bg-[color-mix(in_oklch,var(--accent)_5%,transparent)]"
+                    style={{
+                      borderTop: i === 0 ? "none" : "1px solid var(--border)",
+                    }}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-medium">
+                        {o.baslik}
+                      </div>
+                      <div
+                        className="mt-0.5 truncate text-xs"
+                        style={{ color: "var(--text-muted)" }}
+                      >
+                        {o.cari.unvan} ·{" "}
+                        <span
+                          style={{
+                            color:
+                              vade.durum === "gecikti"
+                                ? "var(--negative)"
+                                : vade.durum === "bugun"
+                                ? "var(--warning)"
+                                : "var(--text-soft)",
+                          }}
+                        >
+                          {formatTarih(o.vadeTarihi)} · {vade.metin}
+                        </span>
+                      </div>
+                    </div>
+                    <div
+                      className="shrink-0 text-right font-semibold tabular-nums"
+                      style={{
+                        color: isAlacak
+                          ? "var(--positive)"
+                          : "var(--negative)",
+                      }}
+                    >
+                      {formatPara(kalan, o.paraBirimi)}
+                    </div>
+                    <div className="shrink-0">
+                      <DurumBadge durum={o.durum} />
+                    </div>
+                    <div
+                      className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {!bitti && kalan > 0 && (
+                        <button
+                          onClick={() => setTahsilTarget(o)}
+                          aria-label={labelEylem}
+                          title={labelEylem}
+                          className="rounded-md p-1.5 hover:bg-black/5 dark:hover:bg-white/10"
+                          style={{ color: "var(--positive)" }}
+                        >
+                          <CheckCircle2 size={14} />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setDeleteTarget(o)}
+                        aria-label="Sil"
+                        title="Sil"
+                        className="rounded-md p-1.5 hover:bg-black/5 dark:hover:bg-white/10"
+                        style={{ color: "var(--negative)" }}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        />
       ) : (
         <div
           className="overflow-hidden rounded-xl border"
@@ -272,14 +405,15 @@ export function OdemeNotuList({
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead
-                className="text-left"
+                className="border-b text-left text-[11px] font-semibold uppercase tracking-wider"
                 style={{
                   background: "var(--surface-muted)",
                   color: "var(--text-muted)",
+                  borderColor: "var(--border)",
                 }}
               >
                 <tr>
-                  <th className="w-8 px-2 py-3">
+                  <th className="w-8 px-2 py-2.5">
                     <input
                       type="checkbox"
                       checked={bulk.isAllSelected}
@@ -291,13 +425,13 @@ export function OdemeNotuList({
                       aria-label="Hepsini seç"
                     />
                   </th>
-                  <th className="px-4 py-3 font-medium">Başlık</th>
-                  <th className="px-4 py-3 font-medium">Profil</th>
-                  <th className="px-4 py-3 font-medium">Vade</th>
-                  <th className="px-4 py-3 text-right font-medium">Tutar</th>
-                  <th className="px-4 py-3 text-right font-medium">Kalan</th>
-                  <th className="px-4 py-3 font-medium">Durum</th>
-                  <th className="px-4 py-3 text-right font-medium">İşlem</th>
+                  <th className="px-4 py-2.5">Başlık</th>
+                  <th className="px-4 py-2.5">Profil</th>
+                  <th className="px-4 py-2.5">Vade</th>
+                  <th className="px-4 py-2.5 text-right">Tutar</th>
+                  <th className="px-4 py-2.5 text-right">Kalan</th>
+                  <th className="px-4 py-2.5">Durum</th>
+                  <th className="w-20 px-4 py-2.5" />
                 </tr>
               </thead>
               <tbody>
@@ -312,7 +446,7 @@ export function OdemeNotuList({
                   return (
                     <tr
                       key={o.id}
-                      className="transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.03]"
+                      className="group transition-colors hover:bg-[color-mix(in_oklch,var(--accent)_5%,transparent)]"
                       style={{
                         borderTop:
                           i === 0 ? "none" : "1px solid var(--border)",
@@ -414,7 +548,7 @@ export function OdemeNotuList({
                         <DurumBadge durum={o.durum} />
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <div className="flex justify-end gap-1">
+                        <div className="flex justify-end gap-0.5 opacity-50 transition-opacity group-hover:opacity-100">
                           {!bitti && kalan > 0 && (
                             <button
                               onClick={() => setTahsilTarget(o)}
@@ -467,14 +601,20 @@ export function OdemeNotuList({
       )}
 
       <OdemeNotuDialog
+        key={editing ? `edit-${editing.id}` : `new-${yon}`}
         isOpen={dialogOpen}
         yon={yon}
         notu={editing}
         cariler={cariler}
+        muzikler={muzikler}
+        muzikEnabled={muzikEnabled}
         onClose={() => setDialogOpen(false)}
         onSaved={() => {
           setDialogOpen(false);
-          router.refresh();
+          /* React 19 / Next 16: server prop'larının yeniden gelmesini bekle */
+          startTransition(() => {
+            router.refresh();
+          });
         }}
       />
 

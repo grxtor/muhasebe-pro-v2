@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { getOrgId } from "@/lib/auth-helpers";
 import { OdemeYonu, OdemeDurumu } from "@/lib/enums";
+import { isModuleActive } from "@/lib/module-guard";
 import { OdemeNotuList } from "../_lib/odeme-notu-list";
 
 export const metadata = { title: "Gelirler" };
@@ -20,6 +21,7 @@ async function loadView(
 ) {
   const orgId = await getOrgId();
   const { q = "", durum = "" } = await spPromise;
+  const muzikEnabled = await isModuleActive("muzik");
 
   const where = {
     organizationId: orgId,
@@ -36,7 +38,7 @@ async function loadView(
       : {}),
   };
 
-  const [items, cariler, istatistikler] = await Promise.all([
+  const [items, cariler, muzikler, istatistikler] = await Promise.all([
     db.odemeNotu.findMany({
       where,
       orderBy: { vadeTarihi: "asc" },
@@ -57,6 +59,25 @@ async function loadView(
         harcamaTuru: true,
       },
     }),
+    muzikEnabled
+      ? db.muzikProfil.findMany({
+          where: { organizationId: orgId, aktif: true },
+          orderBy: { isim: "asc" },
+          select: {
+            id: true,
+            isim: true,
+            magazalar: true,
+            isbirlikciler: true,
+            notlar: true,
+            sanatcilar: {
+              select: {
+                cari: { select: { id: true, kod: true, unvan: true } },
+              },
+              orderBy: { cari: { kod: "asc" } },
+            },
+          },
+        })
+      : Promise.resolve([]),
     computeStats(orgId, yon),
   ]);
 
@@ -78,14 +99,32 @@ async function loadView(
     cari: o.cari!,
   }));
 
+  const serializedMuzikler = muzikler.map((m) => ({
+    id: m.id,
+    isim: m.isim,
+    magazalar: m.magazalar,
+    isbirlikciler: m.isbirlikciler,
+    notlar: m.notlar,
+    sanatcilar: m.sanatcilar.map(({ cari }) => ({
+      id: cari.id,
+      ad: displayName(cari),
+    })),
+  }));
+
   return (
     <OdemeNotuList
       yon={yon}
       items={serialized}
       cariler={cariler}
+      muzikler={serializedMuzikler}
+      muzikEnabled={muzikEnabled}
       istatistikler={istatistikler}
     />
   );
+}
+
+function displayName(c: { kod: string; unvan: string }): string {
+  return c.kod && c.kod.trim() && c.kod !== c.unvan ? c.kod : c.unvan;
 }
 
 async function computeStats(

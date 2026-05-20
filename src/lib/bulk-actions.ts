@@ -76,8 +76,37 @@ export async function bulkDeleteOdemeNotlari(
   const ctx = await getOrgContext();
   if (ids.length === 0) return { ok: true, count: 0 };
 
-  const result = await db.odemeNotu.deleteMany({
+  /* Önce her notunun detay'ından MuzikGelir/MuzikHarcama köprülerini topla,
+     transaction içinde köprüleri + ana kayıtları sil. */
+  const notlar = await db.odemeNotu.findMany({
     where: { id: { in: ids }, organizationId: ctx.orgId },
+    select: { id: true, detay: true },
+  });
+  const muzikGelirIds: number[] = [];
+  const muzikHarcamaIds: number[] = [];
+  for (const n of notlar) {
+    if (!n.detay || typeof n.detay !== "object" || Array.isArray(n.detay)) continue;
+    const d = n.detay as Record<string, unknown>;
+    const gid = Number(d.muzikGelirId);
+    const hid = Number(d.muzikHarcamaId);
+    if (Number.isInteger(gid) && gid > 0) muzikGelirIds.push(gid);
+    if (Number.isInteger(hid) && hid > 0) muzikHarcamaIds.push(hid);
+  }
+
+  const result = await db.$transaction(async (tx) => {
+    if (muzikGelirIds.length > 0) {
+      await tx.muzikGelir.deleteMany({
+        where: { id: { in: muzikGelirIds }, organizationId: ctx.orgId },
+      });
+    }
+    if (muzikHarcamaIds.length > 0) {
+      await tx.muzikHarcama.deleteMany({
+        where: { id: { in: muzikHarcamaIds }, organizationId: ctx.orgId },
+      });
+    }
+    return tx.odemeNotu.deleteMany({
+      where: { id: { in: ids }, organizationId: ctx.orgId },
+    });
   });
 
   await logAction({
@@ -85,11 +114,12 @@ export async function bulkDeleteOdemeNotlari(
     organizationId: ctx.orgId,
     islem: "delete",
     entity: "OdemeNotu",
-    ozet: `${result.count} alacak/borç toplu silindi`,
+    ozet: `${result.count} alacak/borç toplu silindi (${muzikGelirIds.length + muzikHarcamaIds.length} köprü temizlendi)`,
   });
 
   revalidatePath("/uygulama/alacaklar");
   revalidatePath("/uygulama/borclar");
+  revalidatePath("/uygulama/muzik-odemeleri");
   return { ok: true, count: result.count };
 }
 

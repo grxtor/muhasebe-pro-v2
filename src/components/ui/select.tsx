@@ -12,7 +12,9 @@ import {
   type ReactNode,
   type SelectHTMLAttributes,
 } from "react";
+import { createPortal } from "react-dom";
 import { ChevronDown, Check } from "lucide-react";
+import { PlatformIcon, isMuzikMagaza } from "./platform-icon";
 
 /**
  * Custom Select — backward-compatible with native <select>.
@@ -26,6 +28,7 @@ interface OptionInfo {
   value: string;
   label: string;
   disabled?: boolean;
+  leading?: ReactNode;
 }
 
 interface SelectProps
@@ -68,10 +71,41 @@ export function Select({
 
   const [open, setOpen] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState<number>(-1);
+  const [pos, setPos] = useState<{
+    top: number;
+    left: number;
+    width: number;
+  } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
 
   const selected = options.find((o) => o.value === currentValue);
+
+  /** Trigger pozisyonu — popover'ı viewport'a sığdır. */
+  function computePos() {
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (!rect) return null;
+    const POPOVER_MAX_H = 260; // max-h-64 ≈ 256px + padding
+    const GAP = 6;
+    /* Default: trigger'ın altına. Sığmazsa üstüne. */
+    let top = rect.bottom + GAP;
+    if (top + POPOVER_MAX_H > window.innerHeight - 8) {
+      top = rect.top - POPOVER_MAX_H - GAP;
+      if (top < 8) top = 8;
+    }
+    return { top, left: rect.left, width: rect.width };
+  }
+
+  function openWithPos() {
+    if (disabled) return;
+    const p = computePos();
+    if (p) setPos(p);
+    setOpen(true);
+  }
+  function toggleOpen() {
+    if (open) setOpen(false);
+    else openWithPos();
+  }
 
   // Click outside
   useEffect(() => {
@@ -118,9 +152,25 @@ export function Select({
     if (disabled) return;
     if (e.key === "ArrowDown" || e.key === " " || e.key === "Enter") {
       e.preventDefault();
-      setOpen(true);
+      openWithPos();
     }
   }
+
+  // Window resize / scroll — pozisyonu güncelle
+  useEffect(() => {
+    if (!open) return;
+    function reposition() {
+      const p = computePos();
+      if (p) setPos(p);
+    }
+    window.addEventListener("resize", reposition);
+    window.addEventListener("scroll", reposition, true);
+    return () => {
+      window.removeEventListener("resize", reposition);
+      window.removeEventListener("scroll", reposition, true);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   function onListKey(e: React.KeyboardEvent<HTMLUListElement>) {
     if (e.key === "Escape") {
@@ -178,10 +228,10 @@ export function Select({
         aria-expanded={open}
         aria-haspopup="listbox"
         aria-controls={`${id}-list`}
-        onClick={() => !disabled && setOpen((o) => !o)}
+        onClick={toggleOpen}
         onKeyDown={onTriggerKey}
         disabled={disabled}
-        className={`flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2.5 text-sm outline-none transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+        className={`flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm outline-none transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
           open ? "ring-2 ring-offset-0" : ""
         }`}
         style={{
@@ -190,8 +240,13 @@ export function Select({
           color: selected ? "var(--text)" : "var(--text-soft)",
         }}
       >
-        <span className="truncate text-left">
-          {selected?.label ?? placeholder}
+        <span className="flex min-w-0 flex-1 items-center gap-2 text-left">
+          {selected?.leading && (
+            <span className="shrink-0">{selected.leading}</span>
+          )}
+          <span className="truncate">
+            {selected?.label ?? placeholder}
+          </span>
         </span>
         <ChevronDown
           size={14}
@@ -200,7 +255,7 @@ export function Select({
         />
       </button>
 
-      {open && options.length > 0 && (
+      {open && options.length > 0 && pos && typeof document !== "undefined" && createPortal(
         <ul
           ref={listRef}
           id={`${id}-list`}
@@ -208,8 +263,11 @@ export function Select({
           tabIndex={-1}
           onKeyDown={onListKey}
           autoFocus
-          className="absolute top-full right-0 left-0 z-50 mt-1.5 max-h-64 overflow-y-auto rounded-lg border p-1 text-sm shadow-2xl outline-none"
+          className="fixed z-[60] max-h-64 overflow-y-auto rounded-lg border p-1 text-sm shadow-2xl outline-none"
           style={{
+            top: pos.top,
+            left: pos.left,
+            minWidth: Math.max(pos.width, 160),
             background: "var(--surface)",
             borderColor: "var(--border-strong)",
             color: "var(--text)",
@@ -245,11 +303,15 @@ export function Select({
                 <span className="flex w-3.5 shrink-0 items-center">
                   {isSelected && <Check size={13} />}
                 </span>
+                {opt.leading && (
+                  <span className="shrink-0">{opt.leading}</span>
+                )}
                 <span className="flex-1 truncate">{opt.label}</span>
               </li>
             );
           })}
-        </ul>
+        </ul>,
+        document.body,
       )}
     </div>
   );
@@ -270,13 +332,20 @@ function parseOptions(children: ReactNode): OptionInfo[] {
     if (el.type === "option") {
       const value = String(el.props.value ?? "");
       const label = toLabel(el.props.children);
+      // data-platform="Spotify" gibi attribute varsa logo göster
+      const extraProps = el.props as Record<string, unknown>;
+      const platform = extraProps["data-platform"];
+      const leading =
+        typeof platform === "string" && isMuzikMagaza(platform) ? (
+          <PlatformIcon platform={platform} size={14} />
+        ) : undefined;
       out.push({
         value,
         label: label || value,
         disabled: el.props.disabled,
+        leading,
       });
     } else if (el.type === "optgroup") {
-      // optgroup — şimdilik desteklemiyoruz, çocukları flat ekle
       out.push(...parseOptions(el.props.children as ReactNode));
     }
   });

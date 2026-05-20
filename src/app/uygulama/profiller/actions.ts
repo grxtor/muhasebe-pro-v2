@@ -17,6 +17,59 @@ export async function nextProfilKodu(): Promise<string> {
   return `CR-${String(count + 1).padStart(3, "0")}`;
 }
 
+/**
+ * Hızlı profil oluşturma — sadece isim + tip + harcamaTürü ile minimum cari.
+ * Combobox'lardan "yeni" geldiğinde kullanılır: kod otomatik, diğer alanlar boş.
+ */
+export async function createCariInline(input: {
+  unvan: string;
+  tip: CariTipi;
+  harcamaTuru?: HarcamaTuru;
+}): Promise<ActionResult<{ id: number; unvan: string; kod: string }>> {
+  const ctx = await getOrgContext();
+  const unvan = input.unvan.trim();
+  if (unvan.length < 2) {
+    return { ok: false, error: "İsim en az 2 karakter olmalı" };
+  }
+  if (unvan.length > 250) {
+    return { ok: false, error: "İsim çok uzun" };
+  }
+
+  const count = await db.cari.count({ where: { organizationId: ctx.orgId } });
+  const kod = `CR-${String(count + 1).padStart(3, "0")}`;
+
+  const harcamaTuru =
+    input.tip === CariTipi.Harcama
+      ? (input.harcamaTuru ?? HarcamaTuru.Genel)
+      : null;
+
+  const created = await db.cari.create({
+    data: {
+      kod,
+      unvan,
+      tip: input.tip,
+      harcamaTuru,
+      aktif: true,
+      userId: ctx.userId,
+      organizationId: ctx.orgId,
+    },
+    select: { id: true, kod: true, unvan: true },
+  });
+
+  await logAction({
+    userId: ctx.userId,
+    organizationId: ctx.orgId,
+    islem: "create",
+    entity: "Cari",
+    entityId: String(created.id),
+    ozet: `Inline profil eklendi: ${created.unvan}${harcamaTuru ? ` (${harcamaTuru})` : ""}`,
+  });
+
+  revalidatePath("/uygulama/profiller");
+  revalidatePath("/uygulama/muzik-odemeleri");
+  return { ok: true, data: created };
+}
+
 function fdToObject(formData: FormData): Record<string, unknown> {
   const o: Record<string, unknown> = {};
   for (const [k, v] of formData.entries()) o[k] = v;

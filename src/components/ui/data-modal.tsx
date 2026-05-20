@@ -2,13 +2,16 @@
 
 import type { ReactNode } from "react";
 import { X } from "lucide-react";
+import { useEffect } from "react";
 
 interface DataModalProps {
   isOpen: boolean;
   onClose: () => void;
   title: string;
   description?: string;
-  size?: "sm" | "md" | "lg" | "xl";
+  size?: "sm" | "md" | "lg" | "xl" | "2xl" | "3xl";
+  /** Dense layout — daha az padding, daha küçük tipografi */
+  compact?: boolean;
   children: ReactNode;
   footer?: ReactNode;
 }
@@ -18,25 +21,34 @@ const sizeClass: Record<NonNullable<DataModalProps["size"]>, string> = {
   md: "max-w-md",
   lg: "max-w-lg",
   xl: "max-w-2xl",
+  "2xl": "max-w-3xl",
+  "3xl": "max-w-4xl",
 };
 
 /**
- * Hafif, kontrollü modal. HeroUI v3'ün Modal yapısı yerine kendi bileşenimizi
- * kullanıyoruz çünkü create/edit akışlarında programatik state istiyoruz.
+ * Hafif, kontrollü modal.
  *
- * - ESC ile kapanır (effect ile)
- * - Backdrop tıklamasıyla kapanır
- * - Scroll-lock body üzerine eklenir (effect)
- * - Modal içeriği body-scroll'la birlikte hareket eder
+ * Yenilenmiş v2:
+ *  • px-5 py-4 (eskiden px-7 py-5/6) — daha kompakt
+ *  • Header sticky, footer sticky — uzun form'larda alt CTA hep görünür
+ *  • size="2xl"/"3xl" — geniş ekranda iki kolonlu form için
+ *  • compact prop'u — daha küçük dialog'lar için daha sık padding
+ *
+ * 2-column layout için <DialogColumns> kullanın:
+ *   <DataModal size="2xl">
+ *     <DialogColumns>
+ *       <DialogColumn>...</DialogColumn>
+ *       <DialogColumn>...</DialogColumn>
+ *     </DialogColumns>
+ *   </DataModal>
  */
-import { useEffect } from "react";
-
 export function DataModal({
   isOpen,
   onClose,
   title,
   description,
   size = "lg",
+  compact = false,
   children,
   footer,
 }: DataModalProps) {
@@ -56,6 +68,11 @@ export function DataModal({
 
   if (!isOpen) return null;
 
+  const padX = compact ? "px-4" : "px-5";
+  const headerPadY = compact ? "py-3" : "py-3.5";
+  const bodyPadY = compact ? "py-3" : "py-4";
+  const footerPadY = compact ? "py-3" : "py-3.5";
+
   return (
     <div
       role="dialog"
@@ -65,30 +82,30 @@ export function DataModal({
     >
       <button
         aria-label="Kapat"
-        className="fixed inset-0 -z-10 bg-black/50 backdrop-blur-sm"
+        className="fixed inset-0 -z-10 bg-black/45 backdrop-blur-[2px]"
         onClick={onClose}
       />
       <div
-        className={`relative w-full ${sizeClass[size]} max-h-[calc(100vh-2rem)] overflow-hidden rounded-2xl border shadow-2xl`}
+        className={`relative flex w-full ${sizeClass[size]} max-h-[calc(100vh-2rem)] flex-col overflow-hidden rounded-xl border shadow-2xl`}
         style={{
           background: "var(--surface)",
           borderColor: "var(--border)",
         }}
       >
         <header
-          className="flex items-start justify-between gap-4 border-b px-6 py-4"
+          className={`flex items-start justify-between gap-3 border-b ${padX} ${headerPadY}`}
           style={{ borderColor: "var(--border)" }}
         >
           <div className="min-w-0">
             <h2
               id="data-modal-title"
-              className="truncate text-lg font-semibold"
+              className="truncate text-base font-semibold leading-tight"
             >
               {title}
             </h2>
             {description && (
               <p
-                className="mt-0.5 text-sm"
+                className="mt-0.5 text-xs leading-snug"
                 style={{ color: "var(--text-muted)" }}
               >
                 {description}
@@ -98,20 +115,20 @@ export function DataModal({
           <button
             onClick={onClose}
             aria-label="Kapat"
-            className="shrink-0 rounded-md p-1.5 transition-colors hover:bg-black/5 dark:hover:bg-white/10"
+            className="-mr-1 shrink-0 rounded-md p-1.5 transition-colors hover:bg-black/5 dark:hover:bg-white/10"
             style={{ color: "var(--text-muted)" }}
           >
-            <X size={18} />
+            <X size={16} />
           </button>
         </header>
 
-        <div className="max-h-[calc(100vh-13rem)] overflow-y-auto px-6 py-5">
+        <div className={`flex-1 overflow-y-auto ${padX} ${bodyPadY}`}>
           {children}
         </div>
 
         {footer && (
           <footer
-            className="flex items-center justify-end gap-2 border-t px-6 py-4"
+            className={`flex items-center justify-end gap-2 border-t ${padX} ${footerPadY}`}
             style={{
               borderColor: "var(--border)",
               background: "var(--surface-muted)",
@@ -123,4 +140,29 @@ export function DataModal({
       </div>
     </div>
   );
+}
+
+/**
+ * DialogColumns — geniş ekranda dialog body'sini 2 kolona böler.
+ * Mobile/küçük tablette tek kolon. lg+ ekranda yan yana.
+ *
+ * Her kolon space-y-4 ile vertical stack.
+ */
+export function DialogColumns({ children }: { children: ReactNode }) {
+  return (
+    <div className="grid gap-6 md:grid-cols-2 md:gap-8">
+      {children}
+    </div>
+  );
+}
+
+/** DialogColumn — DialogColumns içinde tek kolon. Vertical stack. */
+export function DialogColumn({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return <div className={`space-y-4 ${className ?? ""}`}>{children}</div>;
 }

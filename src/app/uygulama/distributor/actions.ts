@@ -283,6 +283,124 @@ export async function createDistributorRapor(
 // deleteDistributorRapor
 // ----------------------------------------------------------------------------
 
+/**
+ * Audit #14 — Distribütör raporu satırlarını MuzikGelir tablosuna yansıt.
+ *
+ * Algoritma:
+ *  1. Rapor'un raw rows'unu oku
+ *  2. Her satırın trackName'i ile org'daki MuzikProfil.isim'i (case-insensitive)
+ *     eşleştir
+ *  3. Eşleşme varsa MuzikGelir create (rapor donem tarihinde, paraBirimi raporun)
+ *  4. Aynı rapor için tekrar tetiklenirse duplicate olmaması için not'a
+ *     "DistributorRapor#X" işareti — varsa atla
+ *  5. Sonuç: { eslesen, eslesmeyen, olusan }
+ */
+export async function syncRaporToMuzikGelir(
+  raporId: number,
+): Promise<ActionResult<{ eslesen: number; eslesmeyen: number; olusan: number }>> {
+  const ctx = await getOrgContext();
+  const rapor = await db.distributorRapor.findFirst({
+    where: { id: raporId, organizationId: ctx.orgId },
+    select: {
+      id: true,
+      ad: true,
+      donem: true,
+      paraBirimi: true,
+      rawData: true,
+    },
+  });
+  if (!rapor) return { ok: false, error: "Rapor bulunamadı" };
+
+  const raw = rapor.rawData as unknown as RawDataPayload | null;
+  if (!raw || !raw.mapping || !raw.rows) {
+    return { ok: false, error: "Rapor satır içermiyor" };
+  }
+  const { mapping, rows } = raw;
+
+  /* Tüm muzik profilleri yükle (isim → id map için) */
+  const profilller = await db.muzikProfil.findMany({
+    where: { organizationId: ctx.orgId, aktif: true },
+    select: { id: true, isim: true },
+  });
+  const isimMap = new Map<string, number>(
+    profilller.map((p) => [p.isim.toLowerCase().trim(), p.id]),
+  );
+
+  /* Donem'i date'e çevir — YYYY-MM gibi geliyor varsayalım */
+  const donemDate = parseDonem(rapor.donem);
+  const not = `DistributorRapor#${rapor.id} (${rapor.ad})`;
+
+  let eslesen = 0;
+  let eslesmeyen = 0;
+  let olusan = 0;
+
+  await db.$transaction(async (tx) => {
+    for (const r of rows) {
+      const trackName = String(r[mapping.trackName] ?? "").trim();
+      if (!trackName) {
+        eslesmeyen++;
+        continue;
+      }
+      const muzikId = isimMap.get(trackName.toLowerCase());
+      if (!muzikId) {
+        eslesmeyen++;
+        continue;
+      }
+      eslesen++;
+
+      /* Duplicate check — bu rapor için aynı müziğe daha önce yansıdı mı? */
+      const existing = await tx.muzikGelir.findFirst({
+        where: {
+          muzikProfilId: muzikId,
+          organizationId: ctx.orgId,
+          not: { contains: `DistributorRapor#${rapor.id}` },
+        },
+        select: { id: true },
+      });
+      if (existing) continue;
+
+      const tutar = toNumber(r[mapping.revenue]);
+      if (tutar <= 0) continue;
+
+      await tx.muzikGelir.create({
+        data: {
+          muzikProfilId: muzikId,
+          tarih: donemDate,
+          platform: null, // Distribütör multi-platform; rapor seviyesinde ayrı
+          tutar: new Prisma.Decimal(tutar.toFixed(2)) as unknown as number,
+          paraBirimi: rapor.paraBirimi,
+          not,
+          organizationId: ctx.orgId,
+          userId: ctx.userId,
+        },
+      });
+      olusan++;
+    }
+  });
+
+  await logAction({
+    userId: ctx.userId,
+    organizationId: ctx.orgId,
+    islem: "create",
+    entity: "MuzikGelir",
+    entityId: String(rapor.id),
+    ozet: `Distribütör → Müzik geliri sync: ${olusan} oluştu (${eslesen} eşleşti, ${eslesmeyen} atlandı)`,
+  });
+
+  revalidatePath("/uygulama/muzik-odemeleri");
+  revalidatePath(`/uygulama/distributor/${raporId}`);
+  return { ok: true, data: { eslesen, eslesmeyen, olusan } };
+}
+
+/** Donem string ('2026-05' veya '2026-05-15') → Date. */
+function parseDonem(s: string): Date {
+  if (/^\d{4}-\d{2}$/.test(s)) {
+    return new Date(`${s}-01`);
+  }
+  const d = new Date(s);
+  return Number.isFinite(d.getTime()) ? d : new Date();
+}
+
 export async function deleteDistributorRapor(
   id: number,
 ): Promise<ActionResult> {

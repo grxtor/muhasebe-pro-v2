@@ -931,7 +931,8 @@ model KasaHareketi {
   olusturmaTarihi DateTime @default(now())
 
   // Müzik modülü köprü kaydı (delete cascade için)
-  muzikHarcama MuzikHarcama?
+  muzikHarcama   MuzikHarcama?
+  sanatciOdemesi SanatciOdemesi? @relation("SanatciOdemesiKasaHareketi")
 
   @@index([organizationId, tarih(sort: Desc)])
   @@index([kasaId, tarih(sort: Desc)])
@@ -1133,6 +1134,8 @@ model SanatciOdemesi {
   hareket        Hareket? @relation("SanatciOdemesiHareket", fields: [hareketId], references: [id], onDelete: SetNull)
   odemeNotuId    Int?    @unique
   odemeNotu      OdemeNotu? @relation("SanatciOdemesiOdemeNotu", fields: [odemeNotuId], references: [id], onDelete: SetNull)
+  kasaHareketiId Int?    @unique
+  kasaHareketi   KasaHareketi? @relation("SanatciOdemesiKasaHareketi", fields: [kasaHareketiId], references: [id], onDelete: SetNull)
 
   olusturmaTarihi DateTime @default(now())
 

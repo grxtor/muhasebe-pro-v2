@@ -54,6 +54,8 @@ interface NavItem {
   label: string;
   icon: React.ComponentType<{ size?: number }>;
   exact?: boolean;
+  /** Bir üst item'ın "alt" satırıymış gibi göster (sol margin + sade ikon) */
+  indent?: boolean;
 }
 
 interface NavGroup {
@@ -66,67 +68,67 @@ interface NavGroup {
  * Çekirdek (Anasayfa/Alacaklar/Borçlar/Profiller/Ayarlar) her zaman gelir.
  */
 function buildNavGroups(moduller: ModuleFlags, role: OrgRole): NavGroup[] {
-  const muhasebe: NavItem[] = [
-    { href: "/uygulama/alacaklar", label: "Gelirler", icon: TrendingDown },
-    { href: "/uygulama/borclar", label: "Ödemeler", icon: TrendingUp },
+  /* 1) Para Akışı — günlük operasyon */
+  const paraAkisi: NavItem[] = [
+    { href: "/uygulama/alacaklar", label: "Gelirler", icon: TrendingUp },
+    { href: "/uygulama/borclar", label: "Ödemeler", icon: TrendingDown },
   ];
+  if (moduller.muzik) {
+    paraAkisi.push({
+      href: "/uygulama/muzik-odemeleri",
+      label: "Müzik Ödemeleri",
+      icon: Music,
+      indent: true,
+    });
+  }
+  if (moduller.avans) {
+    paraAkisi.push({
+      href: "/uygulama/avans",
+      label: "Avans",
+      icon: HandCoins,
+      indent: true,
+    });
+  }
+
+  /* 2) Defter — fatura, hareket, çek-senet, kasa, KDV */
+  const defter: NavItem[] = [];
   if (moduller.faturalar) {
-    muhasebe.push({
+    defter.push({
       href: "/uygulama/faturalar",
       label: "Faturalar",
       icon: Receipt,
     });
   }
   if (moduller.hareketler) {
-    muhasebe.push({
+    defter.push({
       href: "/uygulama/hareketler",
       label: "Hareketler",
       icon: ListOrdered,
     });
   }
   if (moduller.cekSenet) {
-    muhasebe.push({
+    defter.push({
       href: "/uygulama/cek-senet",
       label: "Çek / Senet",
       icon: FileText,
     });
   }
   if (moduller.kasa) {
-    muhasebe.push({
+    defter.push({
       href: "/uygulama/kasa",
       label: "Kasa",
       icon: Wallet,
     });
   }
   if (moduller.kdvBeyan) {
-    muhasebe.push({
+    defter.push({
       href: "/uygulama/kdv-beyan",
       label: "KDV Beyan",
       icon: Calculator,
     });
   }
-  if (moduller.distributor) {
-    muhasebe.push({
-      href: "/uygulama/distributor",
-      label: "Distribütör",
-      icon: BarChart3,
-    });
-  }
-  if (moduller.ticaret) {
-    muhasebe.push({
-      href: "/uygulama/ticaret",
-      label: "Ticaret",
-      icon: LineChart,
-    });
-  }
-  if (moduller.avans) {
-    muhasebe.push({
-      href: "/uygulama/avans",
-      label: "Avans",
-      icon: HandCoins,
-    });
-  }
 
+  /* 3) Kayıtlar — master data + modüller */
   const kayitlar: NavItem[] = [
     { href: "/uygulama/profiller", label: "Profiller", icon: Users },
   ];
@@ -144,32 +146,38 @@ function buildNavGroups(moduller: ModuleFlags, role: OrgRole): NavGroup[] {
       icon: Repeat,
     });
   }
-
-  const muzikIcerik: NavItem[] = [];
-  if (moduller.muzik) {
-    muzikIcerik.push({
-      href: "/uygulama/muzik-odemeleri",
-      label: "Müzik Ödemeleri",
-      icon: Music,
-    });
-  }
-
-  const kisisel: NavItem[] = [];
   if (moduller.hatirlaticilar) {
-    kisisel.push({
+    kayitlar.push({
       href: "/uygulama/hatirlaticilar",
       label: "Hatırlatıcılar",
       icon: Bell,
     });
   }
+  if (moduller.distributor) {
+    kayitlar.push({
+      href: "/uygulama/distributor",
+      label: "Distribütör",
+      icon: BarChart3,
+    });
+  }
+  if (moduller.ticaret) {
+    kayitlar.push({
+      href: "/uygulama/ticaret",
+      label: "Ticaret",
+      icon: LineChart,
+    });
+  }
+
+  /* 4) Sistem — takım + ayarlar */
+  const sistem: NavItem[] = [];
   if (role === "Owner" || role === "Admin") {
-    kisisel.push({
+    sistem.push({
       href: "/uygulama/ayarlar/ekibim",
       label: "Ekibim",
       icon: UsersRound,
     });
   }
-  kisisel.push({
+  sistem.push({
     href: "/uygulama/ayarlar",
     label: "Ayarlar",
     icon: Settings,
@@ -181,12 +189,10 @@ function buildNavGroups(moduller: ModuleFlags, role: OrgRole): NavGroup[] {
         { href: "/uygulama", label: "Anasayfa", icon: Home, exact: true },
       ],
     },
-    { label: "Muhasebe", items: muhasebe },
+    { label: "Para Akışı", items: paraAkisi },
+    ...(defter.length > 0 ? [{ label: "Defter", items: defter }] : []),
     { label: "Kayıtlar", items: kayitlar },
-    ...(muzikIcerik.length
-      ? [{ label: "Müzik & İçerik", items: muzikIcerik }]
-      : []),
-    { label: "Kişisel", items: kisisel },
+    { label: "Sistem", items: sistem },
   ];
 }
 
@@ -456,29 +462,30 @@ function NavLink({
   label,
   icon: Icon,
   active,
+  indent = false,
   onClick,
 }: {
   href: string;
   label: string;
   icon: React.ComponentType<{ size?: number }>;
   active: boolean;
+  indent?: boolean;
   onClick?: () => void;
 }) {
   return (
     <Link
       href={href}
       onClick={onClick}
-      // Agresif prefetch: hover'da link'i önceden yükler — tıklayınca anında geçiş
       prefetch={true}
-      onMouseEnter={() => {
-        // İlave preconnect: Router prefetch'i tetiklemek için
-        // (Next.js zaten yapar ama mouse-enter'da hemen başlatmak için)
-      }}
-      className="relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors"
+      onMouseEnter={() => {}}
+      className={`relative flex items-center gap-3 rounded-lg py-2 text-sm transition-colors ${
+        indent ? "pl-9 pr-3" : "px-3"
+      }`}
       style={{
         background: active ? "var(--sidebar-active-bg)" : "transparent",
         color: active ? "var(--sidebar-text-strong)" : "var(--sidebar-text)",
         fontWeight: active ? 500 : 400,
+        fontSize: indent ? "13px" : undefined,
       }}
     >
       {active && (
@@ -488,7 +495,14 @@ function NavLink({
           style={{ background: "var(--sidebar-active-bar)" }}
         />
       )}
-      <Icon size={16} />
+      {indent && (
+        <span
+          aria-hidden
+          className="absolute top-1/2 left-5 h-px w-2"
+          style={{ background: "var(--border)", opacity: 0.4 }}
+        />
+      )}
+      <Icon size={indent ? 14 : 16} />
       {label}
     </Link>
   );
