@@ -57,9 +57,9 @@ export default async function MuzikOdemeleriPage({
       sanatcilar: {
         include: { cari: { select: { id: true, kod: true, unvan: true } } },
       },
-      gelirler: { select: { tutar: true } },
-      harcamalar: { select: { tutar: true } },
-      sanatciOdemeleri: { select: { tutar: true } },
+      gelirler: { select: { tutar: true, tarih: true } },
+      harcamalar: { select: { tutar: true, tarih: true } },
+      sanatciOdemeleri: { select: { tutar: true, tarih: true } },
     },
   });
 
@@ -67,10 +67,34 @@ export default async function MuzikOdemeleriPage({
   const sanatciAd = (c: { kod: string; unvan: string }) =>
     c.kod && c.kod !== c.unvan ? c.kod : c.unvan;
 
+  /* Ay anahtarı: "YYYY-MM" */
+  const ayKey = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+
   const rows = muzikler.map((m) => {
     const gelir = m.gelirler.reduce((s, g) => s + Number(g.tutar), 0);
     const harcama = m.harcamalar.reduce((s, h) => s + Number(h.tutar), 0);
     const sanatci = m.sanatciOdemeleri.reduce((s, o) => s + Number(o.tutar), 0);
+
+    /* Ay bazlı kırılım — pivot için */
+    const aylik: Record<
+      string,
+      { gelir: number; harcama: number; sanatci: number }
+    > = {};
+    const ekle = (
+      tarih: Date,
+      alan: "gelir" | "harcama" | "sanatci",
+      tutar: number,
+    ) => {
+      const k = ayKey(new Date(tarih));
+      if (!aylik[k]) aylik[k] = { gelir: 0, harcama: 0, sanatci: 0 };
+      aylik[k][alan] += tutar;
+    };
+    for (const g of m.gelirler) ekle(g.tarih, "gelir", Number(g.tutar));
+    for (const h of m.harcamalar) ekle(h.tarih, "harcama", Number(h.tutar));
+    for (const o of m.sanatciOdemeleri)
+      ekle(o.tarih, "sanatci", Number(o.tutar));
+
     return {
       profil: {
         id: m.id,
@@ -88,6 +112,7 @@ export default async function MuzikOdemeleriPage({
         toplamSanatciOdemesi: sanatci,
         sirketKar: gelir - harcama - sanatci,
       },
+      aylik,
     };
   });
 

@@ -21,6 +21,17 @@ interface BaseProps {
   /** Kaydet — true dönerse başarılı, hücre kapanır. false: editör açık kalır. */
   onSave: (next: string) => Promise<boolean>;
   disabled?: boolean;
+  /** Excel grid koordinatı — ok tuşu navigasyonu için (r-c) */
+  row?: number;
+  col?: number;
+}
+
+/** Komşu hücreye odaklan — data-cell="r-c" attribute ile DOM tabanlı. */
+function focusCell(row: number, col: number) {
+  const el = document.querySelector<HTMLElement>(
+    `[data-cell="${row}-${col}"]`,
+  );
+  el?.focus();
 }
 
 type TextProps = BaseProps & { type?: CellType; options?: undefined };
@@ -41,56 +52,93 @@ type EditableCellProps = TextProps | SelectProps;
  * çağırıp router.refresh yapar — value yeni render'da güncellenir.
  */
 export function EditableCell(props: EditableCellProps) {
-  const { value, display, align = "left", placeholder, onSave, disabled } = props;
+  const { value, display, align = "left", placeholder, onSave, disabled, row, col } = props;
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
   const [saving, setSaving] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const hasGrid = row !== undefined && col !== undefined;
 
   useEffect(() => {
     if (editing) {
-      setDraft(value);
-      // input mount sonrası focus + select
+      // input mount sonrası focus + select (setState yok — lint güvenli)
       requestAnimationFrame(() => {
         inputRef.current?.focus();
         inputRef.current?.select?.();
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editing]);
 
-  async function commit() {
-    if (draft === value) {
-      setEditing(false);
-      return;
+  function startEdit() {
+    setDraft(value);
+    setEditing(true);
+  }
+
+  async function commit(then?: "down" | "right" | "self") {
+    if (draft !== value) {
+      setSaving(true);
+      const ok = await onSave(draft);
+      setSaving(false);
+      if (!ok) {
+        requestAnimationFrame(() => inputRef.current?.focus());
+        return;
+      }
     }
-    setSaving(true);
-    const ok = await onSave(draft);
-    setSaving(false);
-    if (ok) {
-      setEditing(false);
-    } else {
-      // hata — editör açık kalsın, focus geri ver
-      requestAnimationFrame(() => inputRef.current?.focus());
+    setEditing(false);
+    /* Kaydetten sonra komşu hücreye/aynı hücreye odaklan (Excel akışı) */
+    if (hasGrid) {
+      requestAnimationFrame(() => {
+        if (then === "down") focusCell(row! + 1, col!);
+        else if (then === "right") focusCell(row!, col! + 1);
+        else focusCell(row!, col!);
+      });
     }
   }
 
   function cancel() {
     setDraft(value);
     setEditing(false);
+    if (hasGrid) requestAnimationFrame(() => focusCell(row!, col!));
   }
 
   function onKeyDown(e: KeyboardEvent) {
     if (e.key === "Enter") {
       e.preventDefault();
-      void commit();
+      void commit("down"); // Excel: Enter → alta in
     } else if (e.key === "Escape") {
       e.preventDefault();
       cancel();
     } else if (e.key === "Tab") {
-      // Tab default davranışı korunur (sonraki odaklanabilir öğeye geçer);
-      // önce kaydet
-      void commit();
+      e.preventDefault();
+      void commit("right"); // Tab → sağa geç
+    }
+  }
+
+  /* Hücre seçili (editing değil) iken ok tuşlarıyla gezinme — Excel davranışı */
+  function onCellKeyDown(e: KeyboardEvent) {
+    if (!hasGrid) return;
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        focusCell(row! + 1, col!);
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        focusCell(row! - 1, col!);
+        break;
+      case "ArrowLeft":
+        e.preventDefault();
+        focusCell(row!, col! - 1);
+        break;
+      case "ArrowRight":
+        e.preventDefault();
+        focusCell(row!, col! + 1);
+        break;
+      case "Enter":
+      case "F2":
+        e.preventDefault();
+        startEdit();
+        break;
     }
   }
 
@@ -101,10 +149,12 @@ export function EditableCell(props: EditableCellProps) {
       <button
         type="button"
         disabled={disabled}
-        onClick={() => !disabled && setEditing(true)}
-        className={`group/cell block w-full rounded px-2 py-1 ${alignClass} text-sm transition-colors hover:bg-[color-mix(in_oklch,var(--accent)_8%,transparent)] disabled:cursor-default disabled:hover:bg-transparent`}
+        data-cell={hasGrid ? `${row}-${col}` : undefined}
+        onClick={() => !disabled && startEdit()}
+        onKeyDown={onCellKeyDown}
+        className={`block w-full px-2 py-1 ${alignClass} text-sm transition-colors hover:bg-[color-mix(in_oklch,var(--accent)_8%,transparent)] disabled:cursor-default disabled:hover:bg-transparent`}
         style={{ color: "var(--text)" }}
-        title={disabled ? undefined : "Düzenlemek için tıkla"}
+        title={disabled ? undefined : "Düzenle: tıkla veya Enter"}
       >
         {display ?? value ?? (
           <span style={{ color: "var(--text-soft)" }}>{placeholder ?? "—"}</span>

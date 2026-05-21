@@ -23,10 +23,10 @@ import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
+  MuzikMagaza,
   muzikMagazaEtiket,
+  MuzikHarcamaKategori,
   muzikHarcamaKategoriEtiket,
-  type MuzikMagaza,
-  type MuzikHarcamaKategori,
 } from "@/lib/enums";
 import { formatPara } from "@/lib/format";
 import { StatStrip } from "../_stat-strip";
@@ -37,6 +37,12 @@ import {
   platformDisplayName,
 } from "@/components/ui/platform-icon";
 import { MonthAccordion, ViewToggle } from "@/components/ui/month-accordion";
+import { EditableCell } from "@/components/ui/editable-cell";
+import {
+  patchMuzikGelir,
+  patchMuzikHarcama,
+  patchSanatciOdemesi,
+} from "../actions";
 import { deleteMuzikGelir, deleteMuzikHarcama, deleteSanatciOdemesi } from "../actions";
 import { GelirDialog } from "./gelir-dialog";
 import { HarcamaDialog } from "./harcama-dialog";
@@ -640,69 +646,123 @@ function GelirTable({
       />
     );
   }
+  return <GelirTableInner profil={profil} onDelete={onDelete} />;
+}
+
+function GelirTableInner({
+  profil,
+  onDelete,
+}: {
+  profil: MuzikDetailProfil;
+  onDelete: (id: number) => void;
+}) {
+  const router = useRouter();
+  const platformOptions = [
+    { value: "", label: "— Belirsiz —" },
+    ...(Object.values(MuzikMagaza) as MuzikMagaza[]).map((m) => ({
+      value: m,
+      label: muzikMagazaEtiket[m],
+    })),
+  ];
+
+  function save(id: number, field: string) {
+    return async (next: string) => {
+      const r = await patchMuzikGelir(id, field, next);
+      if (r.ok) {
+        router.refresh();
+        return true;
+      }
+      toast.error(r.error);
+      return false;
+    };
+  }
+
   return (
     <TableShell>
-      <table className="w-full text-sm">
-        <thead
-          className="border-b text-left text-xs font-semibold uppercase tracking-wide"
-          style={{
-            background: "var(--surface-muted)",
-            borderColor: "var(--border)",
-            color: "var(--text-muted)",
-          }}
-        >
+      <table className="xl-grid text-sm">
+        <thead>
           <tr>
-            <th className="px-4 py-2.5">Tarih</th>
-            <th className="px-4 py-2.5">Platform</th>
-            <th className="px-4 py-2.5 text-right">Tutar</th>
-            <th className="px-4 py-2.5">Not</th>
-            <th className="px-4 py-2.5 text-right">İşlem</th>
+            <th className="xl-rownum">#</th>
+            <th className="text-left">Tarih</th>
+            <th className="text-left">Platform</th>
+            <th className="text-right">Tutar</th>
+            <th className="text-left">Not</th>
+            <th className="w-10" />
           </tr>
         </thead>
         <tbody>
-          {profil.gelirler.map((g) => (
-            <tr
-              key={g.id}
-              className="border-b"
-              style={{ borderColor: "var(--border)" }}
-            >
-              <td className="px-4 py-2.5 whitespace-nowrap">
-                <span
-                  className="inline-flex items-center gap-1.5 text-xs"
-                  style={{ color: "var(--text-muted)" }}
-                >
-                  <Calendar size={11} />
-                  {g.tarih}
-                </span>
+          {profil.gelirler.map((g, ri) => (
+            <tr key={g.id} className="group">
+              <td className="xl-rownum">{ri + 1}</td>
+              <td className="whitespace-nowrap">
+                <EditableCell
+                  type="date"
+                  row={ri}
+                  col={0}
+                  value={g.tarih.slice(0, 10)}
+                  display={
+                    <span
+                      className="inline-flex items-center gap-1.5 text-xs"
+                      style={{ color: "var(--text-muted)" }}
+                    >
+                      <Calendar size={11} />
+                      {g.tarih.slice(0, 10)}
+                    </span>
+                  }
+                  onSave={save(g.id, "tarih")}
+                />
               </td>
-              <td className="px-4 py-2.5">
-                {g.platform ? (
-                  <span className="inline-flex items-center gap-1.5 text-xs">
-                    <PlatformIcon platform={g.platform} size={14} />
-                    <span>{platformDisplayName(g.platform)}</span>
-                  </span>
-                ) : (
-                  <span className="text-xs" style={{ color: "var(--text-soft)" }}>
-                    —
-                  </span>
-                )}
+              <td>
+                <EditableCell
+                  type="select"
+                  row={ri}
+                  col={1}
+                  options={platformOptions}
+                  value={g.platform ?? ""}
+                  display={
+                    g.platform ? (
+                      <span className="inline-flex items-center gap-1.5 text-xs">
+                        <PlatformIcon platform={g.platform} size={14} />
+                        <span>{platformDisplayName(g.platform)}</span>
+                      </span>
+                    ) : undefined
+                  }
+                  placeholder="— Belirsiz —"
+                  onSave={save(g.id, "platform")}
+                />
               </td>
-              <td
-                className="px-4 py-2.5 text-right font-semibold tabular-nums"
-                style={{ color: "var(--positive)" }}
-              >
-                +{formatPara(g.tutar, g.paraBirimi)}
+              <td className="text-right">
+                <EditableCell
+                  type="number"
+                  align="right"
+                  row={ri}
+                  col={2}
+                  value={String(g.tutar)}
+                  display={
+                    <span
+                      className="font-semibold tabular-nums"
+                      style={{ color: "var(--positive)" }}
+                    >
+                      +{formatPara(g.tutar, g.paraBirimi)}
+                    </span>
+                  }
+                  onSave={save(g.id, "tutar")}
+                />
               </td>
-              <td
-                className="px-4 py-2.5 text-xs"
-                style={{ color: "var(--text-muted)" }}
-              >
-                {g.not ?? "—"}
+              <td>
+                <EditableCell
+                  type="text"
+                  row={ri}
+                  col={3}
+                  value={g.not ?? ""}
+                  placeholder="Not ekle…"
+                  onSave={save(g.id, "not")}
+                />
               </td>
-              <td className="px-4 py-2.5 text-right">
+              <td className="text-center">
                 <button
                   type="button"
-                  className="rounded-md p-1.5 hover:bg-black/5 dark:hover:bg-white/5"
+                  className="rounded-md p-1.5 opacity-0 transition-opacity hover:bg-black/5 group-hover:opacity-100 dark:hover:bg-white/5"
                   style={{ color: "var(--negative)" }}
                   onClick={() => onDelete(g.id)}
                   aria-label="Sil"
@@ -729,6 +789,25 @@ function HarcamaTable({
   onAdd: () => void;
   onDelete: (id: number) => void;
 }) {
+  const router = useRouter();
+  const kategoriOptions = [
+    { value: "", label: "— Belirsiz —" },
+    ...(Object.values(MuzikHarcamaKategori) as MuzikHarcamaKategori[]).map(
+      (k) => ({ value: k, label: muzikHarcamaKategoriEtiket[k] }),
+    ),
+  ];
+  function save(id: number, field: string) {
+    return async (next: string) => {
+      const r = await patchMuzikHarcama(id, field, next);
+      if (r.ok) {
+        router.refresh();
+        return true;
+      }
+      toast.error(r.error);
+      return false;
+    };
+  }
+
   if (profil.harcamalar.length === 0) {
     return (
       <EmptyState
@@ -809,70 +888,87 @@ function HarcamaTable({
   }
   return (
     <TableShell>
-      <table className="w-full text-sm">
-        <thead
-          className="border-b text-left text-xs font-semibold uppercase tracking-wide"
-          style={{
-            background: "var(--surface-muted)",
-            borderColor: "var(--border)",
-            color: "var(--text-muted)",
-          }}
-        >
+      <table className="xl-grid text-sm">
+        <thead>
           <tr>
-            <th className="px-4 py-2.5">Tarih</th>
-            <th className="px-4 py-2.5">Kategori</th>
-            <th className="px-4 py-2.5 text-right">Tutar</th>
-            <th className="px-4 py-2.5">Promoter</th>
-            <th className="px-4 py-2.5">Kasa</th>
-            <th className="px-4 py-2.5">Not</th>
-            <th className="px-4 py-2.5 text-right">İşlem</th>
+            <th className="xl-rownum">#</th>
+            <th className="text-left">Tarih</th>
+            <th className="text-left">Kategori</th>
+            <th className="text-right">Tutar</th>
+            <th className="text-left">Promoter</th>
+            <th className="text-left">Kasa</th>
+            <th className="text-left">Not</th>
+            <th className="w-10" />
           </tr>
         </thead>
         <tbody>
-          {profil.harcamalar.map((h) => (
-            <tr
-              key={h.id}
-              className="border-b"
-              style={{ borderColor: "var(--border)" }}
-            >
-              <td className="px-4 py-2.5 whitespace-nowrap">
-                <span
-                  className="inline-flex items-center gap-1.5 text-xs"
-                  style={{ color: "var(--text-muted)" }}
-                >
-                  <Calendar size={11} />
-                  {h.tarih}
-                </span>
+          {profil.harcamalar.map((h, ri) => (
+            <tr key={h.id} className="group">
+              <td className="xl-rownum">{ri + 1}</td>
+              <td className="whitespace-nowrap">
+                <EditableCell
+                  type="date"
+                  row={ri}
+                  col={0}
+                  value={h.tarih.slice(0, 10)}
+                  display={
+                    <span
+                      className="inline-flex items-center gap-1.5 text-xs"
+                      style={{ color: "var(--text-muted)" }}
+                    >
+                      <Calendar size={11} />
+                      {h.tarih.slice(0, 10)}
+                    </span>
+                  }
+                  onSave={save(h.id, "tarih")}
+                />
               </td>
-              <td className="px-4 py-2.5">
-                {h.kategori ? (
-                  <span
-                    className="inline-flex items-center rounded-md px-1.5 py-0.5 text-xs"
-                    style={{
-                      background: "var(--surface-muted)",
-                      color: "var(--text)",
-                    }}
-                  >
-                    {muzikHarcamaKategoriEtiket[h.kategori]}
-                  </span>
-                ) : (
-                  <span className="text-xs" style={{ color: "var(--text-soft)" }}>
-                    —
-                  </span>
-                )}
+              <td>
+                <EditableCell
+                  type="select"
+                  row={ri}
+                  col={1}
+                  options={kategoriOptions}
+                  value={h.kategori ?? ""}
+                  display={
+                    h.kategori ? (
+                      <span
+                        className="inline-flex items-center rounded-md px-1.5 py-0.5 text-xs"
+                        style={{
+                          background: "var(--surface-muted)",
+                          color: "var(--text)",
+                        }}
+                      >
+                        {muzikHarcamaKategoriEtiket[h.kategori]}
+                      </span>
+                    ) : undefined
+                  }
+                  placeholder="— Belirsiz —"
+                  onSave={save(h.id, "kategori")}
+                />
               </td>
-              <td className="px-4 py-2.5 text-right">
+              <td className="text-right">
                 <div className="flex items-center justify-end gap-1.5">
-                  <span
-                    className="font-semibold tabular-nums"
-                    style={{ color: "var(--negative)" }}
-                  >
-                    −{formatPara(h.tutar, h.paraBirimi)}
-                  </span>
+                  <EditableCell
+                    type="number"
+                    align="right"
+                    row={ri}
+                    col={2}
+                    value={String(h.tutar)}
+                    display={
+                      <span
+                        className="font-semibold tabular-nums"
+                        style={{ color: "var(--negative)" }}
+                      >
+                        −{formatPara(h.tutar, h.paraBirimi)}
+                      </span>
+                    }
+                    onSave={save(h.id, "tutar")}
+                  />
                   {h.borclaraYansit && <BorclarBadge />}
                 </div>
               </td>
-              <td className="px-4 py-2.5">
+              <td className="px-2">
                 {h.promoter ? (
                   <Link
                     href="/uygulama/profiller?harcamaTuru=Promoter"
@@ -888,7 +984,7 @@ function HarcamaTable({
                   </span>
                 )}
               </td>
-              <td className="px-4 py-2.5">
+              <td className="px-2">
                 {h.kasa ? (
                   <span
                     className="text-xs"
@@ -902,16 +998,20 @@ function HarcamaTable({
                   </span>
                 )}
               </td>
-              <td
-                className="px-4 py-2.5 text-xs"
-                style={{ color: "var(--text-muted)" }}
-              >
-                {h.not ?? "—"}
+              <td>
+                <EditableCell
+                  type="text"
+                  row={ri}
+                  col={3}
+                  value={h.not ?? ""}
+                  placeholder="Not ekle…"
+                  onSave={save(h.id, "not")}
+                />
               </td>
-              <td className="px-4 py-2.5 text-right">
+              <td className="text-center">
                 <button
                   type="button"
-                  className="rounded-md p-1.5 hover:bg-black/5 dark:hover:bg-white/5"
+                  className="rounded-md p-1.5 opacity-0 transition-opacity hover:bg-black/5 group-hover:opacity-100 dark:hover:bg-white/5"
                   style={{ color: "var(--negative)" }}
                   onClick={() => onDelete(h.id)}
                   aria-label="Sil"
@@ -940,6 +1040,19 @@ function SanatciTable({
   onEdit: (row: SanatciOdemesiRow) => void;
   onDelete: (id: number) => void;
 }) {
+  const router = useRouter();
+  function save(id: number, field: string) {
+    return async (next: string) => {
+      const r = await patchSanatciOdemesi(id, field, next);
+      if (r.ok) {
+        router.refresh();
+        return true;
+      }
+      toast.error(r.error);
+      return false;
+    };
+  }
+
   if (profil.sanatciOdemeleri.length === 0) {
     return (
       <EmptyState
@@ -1035,70 +1148,75 @@ function SanatciTable({
   }
   return (
     <TableShell>
-      <table className="w-full text-sm">
-        <thead
-          className="border-b text-left text-xs font-semibold uppercase tracking-wide"
-          style={{
-            background: "var(--surface-muted)",
-            borderColor: "var(--border)",
-            color: "var(--text-muted)",
-          }}
-        >
+      <table className="xl-grid text-sm">
+        <thead>
           <tr>
-            <th className="px-4 py-2.5">Tarih</th>
-            <th className="px-4 py-2.5">Sanatçı</th>
-            <th className="px-4 py-2.5 text-right">Tutar</th>
-            <th className="px-4 py-2.5">Not</th>
-            <th className="px-4 py-2.5 text-right">İşlem</th>
+            <th className="xl-rownum">#</th>
+            <th className="text-left">Tarih</th>
+            <th className="text-left">Sanatçı</th>
+            <th className="text-right">Tutar</th>
+            <th className="text-left">Not</th>
+            <th className="w-10" />
           </tr>
         </thead>
         <tbody>
-          {profil.sanatciOdemeleri.map((o) => (
-            <tr
-              key={o.id}
-              className="border-b"
-              style={{ borderColor: "var(--border)" }}
-            >
-              <td className="px-4 py-2.5 whitespace-nowrap">
-                <span
-                  className="inline-flex items-center gap-1.5 text-xs"
-                  style={{ color: "var(--text-muted)" }}
-                >
-                  <Calendar size={11} />
-                  {o.tarih}
-                </span>
+          {profil.sanatciOdemeleri.map((o, ri) => (
+            <tr key={o.id} className="group">
+              <td className="xl-rownum">{ri + 1}</td>
+              <td className="whitespace-nowrap">
+                <EditableCell
+                  type="date"
+                  row={ri}
+                  col={0}
+                  value={o.tarih.slice(0, 10)}
+                  display={
+                    <span
+                      className="inline-flex items-center gap-1.5 text-xs"
+                      style={{ color: "var(--text-muted)" }}
+                    >
+                      <Calendar size={11} />
+                      {o.tarih.slice(0, 10)}
+                    </span>
+                  }
+                  onSave={save(o.id, "tarih")}
+                />
               </td>
-              <td className="px-4 py-2.5 font-medium">{o.sanatci.ad}</td>
-              <td className="px-4 py-2.5 text-right">
+              <td className="px-2 font-medium">{o.sanatci.ad}</td>
+              <td className="text-right">
                 <div className="flex items-center justify-end gap-1.5">
-                  <span
-                    className="font-semibold tabular-nums"
-                    style={{ color: "var(--text)" }}
-                  >
-                    {formatPara(o.tutar, o.paraBirimi)}
-                  </span>
+                  <EditableCell
+                    type="number"
+                    align="right"
+                    row={ri}
+                    col={1}
+                    value={String(o.tutar)}
+                    display={
+                      <span
+                        className="font-semibold tabular-nums"
+                        style={{ color: "var(--text)" }}
+                      >
+                        {formatPara(o.tutar, o.paraBirimi)}
+                      </span>
+                    }
+                    onSave={save(o.id, "tutar")}
+                  />
                   {o.borclaraYansit && <BorclarBadge />}
                 </div>
               </td>
-              <td
-                className="px-4 py-2.5 text-xs"
-                style={{ color: "var(--text-muted)" }}
-              >
-                {o.not ?? "—"}
+              <td>
+                <EditableCell
+                  type="text"
+                  row={ri}
+                  col={2}
+                  value={o.not ?? ""}
+                  placeholder="Not ekle…"
+                  onSave={save(o.id, "not")}
+                />
               </td>
-              <td className="px-4 py-2.5 text-right">
+              <td className="text-center">
                 <button
                   type="button"
-                  className="rounded-md p-1.5 hover:bg-black/5 dark:hover:bg-white/5"
-                  style={{ color: "var(--text-muted)" }}
-                  onClick={() => onEdit(o)}
-                  aria-label="Düzenle"
-                >
-                  <Pencil size={12} />
-                </button>
-                <button
-                  type="button"
-                  className="rounded-md p-1.5 hover:bg-black/5 dark:hover:bg-white/5"
+                  className="rounded-md p-1.5 opacity-0 transition-opacity hover:bg-black/5 group-hover:opacity-100 dark:hover:bg-white/5"
                   style={{ color: "var(--negative)" }}
                   onClick={() => onDelete(o.id)}
                   aria-label="Sil"

@@ -161,3 +161,47 @@ body {
 table {
   font-variant-numeric: tabular-nums;
 }
+
+/* ============================================================
+   Excel-tarzı ızgara (xl-grid) — gerçek çalışma sayfası hissi
+   ============================================================ */
+.xl-grid {
+  border-collapse: collapse;
+  width: 100%;
+}
+.xl-grid th,
+.xl-grid td {
+  border: 1px solid var(--border);
+  padding: 0;
+}
+.xl-grid thead th {
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+/* Satır numarası / köşe başlık hücresi */
+.xl-grid .xl-rownum {
+  background: var(--surface-muted);
+  color: var(--text-soft);
+  font-size: 11px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  width: 36px;
+  min-width: 36px;
+  user-select: none;
+  padding: 0 4px;
+}
+.xl-grid tbody tr:hover .xl-rownum {
+  background: color-mix(in oklch, var(--accent) 12%, var(--surface-muted));
+  color: var(--text);
+}
+/* Aktif (düzenlenen) hücre — kalın çerçeve */
+.xl-cell-active {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}

@@ -12,7 +12,7 @@ import {
   sanatciOdemesiSchema,
   slugify,
 } from "@/lib/schemas/muzik";
-import { type MuzikMagaza } from "@/lib/enums";
+import { MuzikMagaza, MuzikHarcamaKategori } from "@/lib/enums";
 
 export type ActionResult<T = void> =
   | { ok: true; data?: T }
@@ -1161,5 +1161,220 @@ export async function deleteSanatciOdemesi(id: number): Promise<ActionResult> {
   });
 
   revalidatePath(`/uygulama/muzik-odemeleri/${o.muzikProfil.slug}`);
+  return { ok: true };
+}
+
+/**
+ * Inline müzik adı düzenleme — ana liste sayfası (Excel-tarzı).
+ */
+export async function patchMuzikProfilIsim(
+  id: number,
+  isim: string,
+): Promise<ActionResult> {
+  const ctx = await getOrgContext();
+  const trimmed = isim.trim();
+  if (trimmed.length < 1 || trimmed.length > 250) {
+    return { ok: false, error: "İsim 1-250 karakter olmalı" };
+  }
+  const m = await db.muzikProfil.findFirst({
+    where: { id, organizationId: ctx.orgId },
+    select: { id: true, slug: true },
+  });
+  if (!m) return { ok: false, error: "Bulunamadı" };
+
+  await db.muzikProfil.update({
+    where: { id },
+    data: { isim: trimmed },
+  });
+
+  revalidatePath("/uygulama/muzik-odemeleri");
+  revalidatePath(`/uygulama/muzik-odemeleri/${m.slug}`);
+  return { ok: true };
+}
+
+/* ============================================================
+   Inline edit — tek alan patch (Excel-tarzı hücre düzenleme)
+   ============================================================ */
+
+const MUZIK_GELIR_FIELDS = ["tarih", "tutar", "platform", "not"] as const;
+const MUZIK_HARCAMA_FIELDS = ["tarih", "tutar", "kategori", "not"] as const;
+const SANATCI_ODEME_FIELDS = ["tarih", "tutar", "not"] as const;
+
+type PatchField = string;
+
+/** Tek alan değerini Prisma tipine çevir + doğrula. null = geçersiz/temizle. */
+function coercePatchValue(
+  field: string,
+  raw: string,
+): { ok: true; value: unknown } | { ok: false; error: string } {
+  if (field === "tutar") {
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n <= 0) {
+      return { ok: false, error: "Tutar > 0 olmalı" };
+    }
+    if (n > 999_999_999_999_999.99) {
+      return { ok: false, error: "Tutar çok büyük" };
+    }
+    return { ok: true, value: new Prisma.Decimal(n.toFixed(2)) };
+  }
+  if (field === "tarih") {
+    const d = new Date(raw);
+    if (Number.isNaN(d.getTime())) return { ok: false, error: "Tarih geçersiz" };
+    return { ok: true, value: d };
+  }
+  if (field === "platform") {
+    if (!raw) return { ok: true, value: null };
+    if (!(raw in MuzikMagaza)) return { ok: false, error: "Platform geçersiz" };
+    return { ok: true, value: raw };
+  }
+  if (field === "kategori") {
+    if (!raw) return { ok: true, value: null };
+    if (!(raw in MuzikHarcamaKategori))
+      return { ok: false, error: "Kategori geçersiz" };
+    return { ok: true, value: raw };
+  }
+  // not + diğer string alanlar
+  const trimmed = raw.trim();
+  return { ok: true, value: trimmed.length > 0 ? trimmed.slice(0, 500) : null };
+}
+
+export async function patchMuzikGelir(
+  id: number,
+  field: PatchField,
+  value: string,
+): Promise<ActionResult> {
+  const ctx = await getOrgContext();
+  if (!MUZIK_GELIR_FIELDS.includes(field as (typeof MUZIK_GELIR_FIELDS)[number])) {
+    return { ok: false, error: "Geçersiz alan" };
+  }
+  const g = await db.muzikGelir.findFirst({
+    where: { id, organizationId: ctx.orgId },
+    include: { muzikProfil: { select: { slug: true } } },
+  });
+  if (!g) return { ok: false, error: "Bulunamadı" };
+
+  const coerced = coercePatchValue(field, value);
+  if (!coerced.ok) return { ok: false, error: coerced.error };
+
+  await db.muzikGelir.update({
+    where: { id },
+    data: { [field]: coerced.value },
+  });
+
+  revalidatePath(`/uygulama/muzik-odemeleri/${g.muzikProfil.slug}`);
+  revalidatePath("/uygulama/muzik-odemeleri");
+  return { ok: true };
+}
+
+export async function patchMuzikHarcama(
+  id: number,
+  field: PatchField,
+  value: string,
+): Promise<ActionResult> {
+  const ctx = await getOrgContext();
+  if (
+    !MUZIK_HARCAMA_FIELDS.includes(field as (typeof MUZIK_HARCAMA_FIELDS)[number])
+  ) {
+    return { ok: false, error: "Geçersiz alan" };
+  }
+  const h = await db.muzikHarcama.findFirst({
+    where: { id, organizationId: ctx.orgId },
+    include: { muzikProfil: { select: { slug: true } } },
+  });
+  if (!h) return { ok: false, error: "Bulunamadı" };
+
+  const coerced = coercePatchValue(field, value);
+  if (!coerced.ok) return { ok: false, error: coerced.error };
+
+  await db.muzikHarcama.update({
+    where: { id },
+    data: { [field]: coerced.value },
+  });
+
+  /* Tutar değiştiyse köprü Hareket/OdemeNotu/KasaHareketi de güncellensin */
+  if (field === "tutar" && (h.hareketId || h.odemeNotuId || h.kasaHareketiId)) {
+    const yeniTutar = coerced.value as Prisma.Decimal;
+    await db.$transaction(async (tx) => {
+      if (h.hareketId)
+        await tx.hareket
+          .update({ where: { id: h.hareketId! }, data: { tutar: yeniTutar } })
+          .catch(() => {});
+      if (h.odemeNotuId)
+        await tx.odemeNotu
+          .update({
+            where: { id: h.odemeNotuId! },
+            data: { tutar: yeniTutar },
+          })
+          .catch(() => {});
+      if (h.kasaHareketiId)
+        await tx.kasaHareketi
+          .update({
+            where: { id: h.kasaHareketiId! },
+            data: { tutar: yeniTutar },
+          })
+          .catch(() => {});
+    });
+  }
+
+  revalidatePath(`/uygulama/muzik-odemeleri/${h.muzikProfil.slug}`);
+  revalidatePath("/uygulama/muzik-odemeleri");
+  revalidatePath("/uygulama/borclar");
+  return { ok: true };
+}
+
+export async function patchSanatciOdemesi(
+  id: number,
+  field: PatchField,
+  value: string,
+): Promise<ActionResult> {
+  const ctx = await getOrgContext();
+  if (
+    !SANATCI_ODEME_FIELDS.includes(
+      field as (typeof SANATCI_ODEME_FIELDS)[number],
+    )
+  ) {
+    return { ok: false, error: "Geçersiz alan" };
+  }
+  const o = await db.sanatciOdemesi.findFirst({
+    where: { id, organizationId: ctx.orgId },
+    include: { muzikProfil: { select: { slug: true } } },
+  });
+  if (!o) return { ok: false, error: "Bulunamadı" };
+
+  const coerced = coercePatchValue(field, value);
+  if (!coerced.ok) return { ok: false, error: coerced.error };
+
+  await db.sanatciOdemesi.update({
+    where: { id },
+    data: { [field]: coerced.value },
+  });
+
+  /* Tutar değiştiyse köprüleri güncelle */
+  if (field === "tutar" && (o.hareketId || o.odemeNotuId || o.kasaHareketiId)) {
+    const yeniTutar = coerced.value as Prisma.Decimal;
+    await db.$transaction(async (tx) => {
+      if (o.hareketId)
+        await tx.hareket
+          .update({ where: { id: o.hareketId! }, data: { tutar: yeniTutar } })
+          .catch(() => {});
+      if (o.odemeNotuId)
+        await tx.odemeNotu
+          .update({
+            where: { id: o.odemeNotuId! },
+            data: { tutar: yeniTutar },
+          })
+          .catch(() => {});
+      if (o.kasaHareketiId)
+        await tx.kasaHareketi
+          .update({
+            where: { id: o.kasaHareketiId! },
+            data: { tutar: yeniTutar },
+          })
+          .catch(() => {});
+    });
+  }
+
+  revalidatePath(`/uygulama/muzik-odemeleri/${o.muzikProfil.slug}`);
+  revalidatePath("/uygulama/borclar");
   return { ok: true };
 }
